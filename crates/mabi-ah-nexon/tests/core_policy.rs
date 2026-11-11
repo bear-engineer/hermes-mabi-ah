@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 use std::cell::Cell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -77,7 +79,10 @@ fn file_is_used_when_env_absent_and_trimmed() {
 
 #[test]
 fn empty_env_and_empty_file_are_errors() {
-    assert_eq!(ApiKey::load(None, Some("  ".to_owned())), Err(KeyError::Empty));
+    assert_eq!(
+        ApiKey::load(None, Some("  ".to_owned())),
+        Err(KeyError::Empty)
+    );
     let f = temp_file("empty", "   \n");
     assert_eq!(ApiKey::load(Some(&f), None), Err(KeyError::Empty));
     let _ = std::fs::remove_file(f);
@@ -127,7 +132,14 @@ fn http_status_table() {
     assert_eq!(OpenApi00002.http_status(), 403);
     assert_eq!(OpenApi00007.http_status(), 429);
     assert_eq!(OpenApi00011.http_status(), 503);
-    for c in [OpenApi00003, OpenApi00004, OpenApi00005, OpenApi00006, OpenApi00009, OpenApi00010] {
+    for c in [
+        OpenApi00003,
+        OpenApi00004,
+        OpenApi00005,
+        OpenApi00006,
+        OpenApi00009,
+        OpenApi00010,
+    ] {
         assert_eq!(c.http_status(), 400, "{}", c.name());
     }
 }
@@ -140,7 +152,13 @@ fn retry_class_table() {
     assert_eq!(OpenApi00009.retry(), RetryClass::Once);
     assert_eq!(OpenApi00010.retry(), RetryClass::Backoff);
     assert_eq!(OpenApi00011.retry(), RetryClass::Backoff);
-    for c in [OpenApi00002, OpenApi00003, OpenApi00004, OpenApi00005, OpenApi00006] {
+    for c in [
+        OpenApi00002,
+        OpenApi00003,
+        OpenApi00004,
+        OpenApi00005,
+        OpenApi00006,
+    ] {
         assert_eq!(c.retry(), RetryClass::Never, "{}", c.name());
     }
 }
@@ -170,14 +188,21 @@ fn parses_api_error_body() {
 
 #[test]
 fn rejects_unknown_or_malformed_error_body() {
-    assert_eq!(parse_error_body(r#"{"error":{"name":"OPENAPI00008","message":"x"}}"#), None);
+    assert_eq!(
+        parse_error_body(r#"{"error":{"name":"OPENAPI00008","message":"x"}}"#),
+        None
+    );
     assert_eq!(parse_error_body("<html>502</html>"), None);
 }
 
 // ---- retry ----
 
 fn policy() -> RetryPolicy {
-    RetryPolicy { max_attempts: 5, base_ms: 100, cap_ms: 1_000 }
+    RetryPolicy {
+        max_attempts: 5,
+        base_ms: 100,
+        cap_ms: 1_000,
+    }
 }
 
 #[test]
@@ -187,7 +212,9 @@ fn never_class_does_not_retry() {
 
 #[test]
 fn once_class_retries_only_first_attempt() {
-    let d = policy().next_delay(1, RetryClass::Once, 42).expect("retry once");
+    let d = policy()
+        .next_delay(1, RetryClass::Once, 42)
+        .expect("retry once");
     assert!(d <= Duration::from_millis(100));
     assert_eq!(policy().next_delay(2, RetryClass::Once, 42), None);
 }
@@ -195,14 +222,21 @@ fn once_class_retries_only_first_attempt() {
 #[test]
 fn backoff_stops_at_max_attempts() {
     for a in 1..5 {
-        assert!(policy().next_delay(a, RetryClass::Backoff, 9).is_some(), "attempt {a}");
+        assert!(
+            policy().next_delay(a, RetryClass::Backoff, 9).is_some(),
+            "attempt {a}"
+        );
     }
     assert_eq!(policy().next_delay(5, RetryClass::Backoff, 9), None);
 }
 
 #[test]
 fn backoff_is_bounded_by_exponential_and_cap() {
-    let p = RetryPolicy { max_attempts: 100, base_ms: 100, cap_ms: 1_000 };
+    let p = RetryPolicy {
+        max_attempts: 100,
+        base_ms: 100,
+        cap_ms: 1_000,
+    };
     for seed in 0..200u64 {
         let d1 = p.next_delay(1, RetryClass::Backoff, seed).unwrap();
         assert!(d1 <= Duration::from_millis(100));
@@ -220,14 +254,19 @@ fn backoff_is_deterministic_per_seed_and_jittered_across_seeds() {
         p.next_delay(3, RetryClass::Backoff, 7),
         p.next_delay(3, RetryClass::Backoff, 7)
     );
-    let distinct: std::collections::BTreeSet<_> =
-        (0..50u64).filter_map(|s| p.next_delay(3, RetryClass::Backoff, s)).collect();
+    let distinct: std::collections::BTreeSet<_> = (0..50u64)
+        .filter_map(|s| p.next_delay(3, RetryClass::Backoff, s))
+        .collect();
     assert!(distinct.len() > 1, "jitter must vary across seeds");
 }
 
 #[test]
 fn huge_attempt_does_not_overflow() {
-    let p = RetryPolicy { max_attempts: u32::MAX, base_ms: u64::MAX / 2, cap_ms: 5_000 };
+    let p = RetryPolicy {
+        max_attempts: u32::MAX,
+        base_ms: u64::MAX / 2,
+        cap_ms: 5_000,
+    };
     let d = p.next_delay(u32::MAX - 1, RetryClass::Backoff, 3).unwrap();
     assert!(d <= Duration::from_millis(5_000));
 }
@@ -301,7 +340,11 @@ fn idle_time_refills_only_up_to_capacity() {
 #[test]
 fn tier_bucket_uses_development_rate() {
     let t = Rc::new(Cell::new(Duration::ZERO));
-    let mut b = TokenBucket::for_tier(Tier::Development, FakeClock(t.clone()), FakeSleeper(t.clone()));
+    let mut b = TokenBucket::for_tier(
+        Tier::Development,
+        FakeClock(t.clone()),
+        FakeSleeper(t.clone()),
+    );
     for _ in 0..6 {
         b.acquire();
     }

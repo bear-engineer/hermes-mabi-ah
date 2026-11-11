@@ -8,9 +8,15 @@ pub enum Tier {
 
 impl Tier {
     pub const fn per_second(self) -> u32 {
-        todo!()
+        match self {
+            Tier::Development => 5,
+            Tier::Service => 500,
+        }
     }
     pub const fn per_day(self) -> u32 {
-        todo!()
+        match self {
+            Tier::Development => 1_000,
+            Tier::Service => 20_000_000,
+        }
     }
 }
