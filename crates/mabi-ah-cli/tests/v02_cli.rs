@@ -469,3 +469,114 @@ fn collect_records_catalog_observations() {
         "{v}"
     );
 }
+
+fn escape_fake() -> Env {
+    let it = |n: &str, c: &str| item(n, 100, vec![opt("색상", Some("파트 A"), c, None)]);
+    let items = vec![
+        it("@파이프", "a|b"),
+        it("@역슬래시", "a\\b"),
+        it("@평범", "ab"),
+    ];
+    let (base, _) = serve(Box::new(move |_| (200, body(&items, None))));
+    Env::new(&base)
+}
+
+fn listing_names(env: &Env, o: &str) -> Vec<String> {
+    names(
+        &env.run(&["listings", "--category", "한손 검", "-o", o])
+            .ok(),
+    )
+}
+
+#[test]
+fn plain_option_escapes_are_honoured() {
+    let env = escape_fake();
+    assert_eq!(listing_names(&env, "색상~a\\|b"), ["@파이프"]);
+    assert_eq!(listing_names(&env, "색상~a\\\\b"), ["@역슬래시"]);
+    assert_eq!(listing_names(&env, "색상~ab"), ["@평범"]);
+    // unescaped `|` is OR, an escaped `\!` is a literal bang in the type position
+    assert_eq!(listing_names(&env, "색상~a\\|b|ab"), ["@파이프", "@평범"]);
+}
+
+#[test]
+fn watch_add_rejects_expression_syntax() {
+    let env = fake();
+    for o in ["!색상~빨강", "색상~빨강|파랑", "색상~a\\|b"] {
+        let r = env.run(&["watch", "add", "--name", "@롱 소드", "-o", o]);
+        assert_eq!(r.code, 2, "{o}: {}", r.stdout);
+        let hint = r.json()["error"]["hint"].as_str().unwrap().to_owned();
+        assert!(hint.contains("listings"), "{o}: hint {hint}");
+    }
+    let r = env.run(&["watch", "add", "--name", "@롱 소드", "-o", "에르그:S>=40"]);
+    assert_eq!(r.code, 0, "{}", r.stdout);
+    assert_eq!(env.run(&["watch", "list"]).ok()["data"]["count"], 1);
+}
+
+#[test]
+fn catalog_rows_with_labanyu_fields_carry_attribution() {
+    let env = fake();
+    for args in [
+        &["catalog", "enchant", "--query", "날카", "--limit", "1"][..],
+        &["catalog", "reforge", "--category", "한손 검"][..],
+        &[
+            "catalog",
+            "reference",
+            "--kind",
+            "reforge_option_names",
+            "--limit",
+            "1",
+        ][..],
+    ] {
+        let v = env.run(args).ok();
+        let a = v["meta"]["attribution"].as_str().unwrap();
+        assert!(a.contains("Data based on NEXON Open API"), "{args:?}: {a}");
+        assert!(a.contains("mabi.labanyu.com"), "{args:?}: {a}");
+    }
+    let v = env.run(&["catalog", "values", "--type", "에르그"]).ok();
+    assert_eq!(v["meta"]["attribution"], "Data based on NEXON Open API");
+}
+
+#[test]
+fn exit2_suggestions_are_in_hint() {
+    let env = fake();
+    for (o, want) in [("세공옵션>=1", "세공 옵션"), ("인첸트>=E", "인챈트")] {
+        let r = env.run(&["listings", "--category", "한손 검", "-o", o]);
+        assert_eq!(r.code, 2, "{o}: {}", r.stdout);
+        let hint = r.json()["error"]["hint"].as_str().unwrap().to_owned();
+        assert!(hint.contains(want), "{o}: hint {hint}");
+    }
+}
+
+#[test]
+fn enchant_rank_rejects_empty_range_and_names() {
+    let env = fake();
+    for v in [">=1,<=F", "날카로운", "접두:날카로운>=E", ">=A,<=E"] {
+        let r = env.run(&["listings", "--category", "한손 검", "--enchant-rank", v]);
+        assert_eq!(r.code, 2, "{v}: {}", r.stdout);
+    }
+    let r = env.run(&[
+        "listings",
+        "--category",
+        "한손 검",
+        "--enchant-rank",
+        "접두>=E",
+    ]);
+    assert_eq!(r.code, 0, "{}", r.stdout);
+}
+
+#[test]
+fn option_prices_unknown_family_is_usage_before_any_call() {
+    let (base, seen) = serve(Box::new(|_| (200, body(&fixture(), None))));
+    let env = Env::new(&base);
+    let r = env.run(&[
+        "option-prices",
+        "--category",
+        "토템",
+        "--family",
+        "토템효과",
+    ]);
+    assert_eq!(r.code, 2, "{}", r.stdout);
+    let hint = r.json()["error"]["hint"].as_str().unwrap().to_owned();
+    assert!(hint.contains("토템 효과"), "hint {hint}");
+    assert!(seen.lock().unwrap().is_empty());
+}

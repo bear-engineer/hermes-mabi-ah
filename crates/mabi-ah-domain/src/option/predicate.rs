@@ -300,6 +300,12 @@ impl FromStr for ReforgePred {
     }
 }
 
+/// The one reforge name rule: `wanted` equals the effect name or its trailing words.
+pub fn reforge_name_matches(effect: &str, wanted: &str) -> bool {
+    let _ = (effect, wanted);
+    todo!("fx1: shared reforge name rule")
+}
+
 impl ReforgePred {
     /// Effect name matches exactly or as trailing words (`최대 대미지` matches `듀얼건 최대 대미지`).
     pub fn matches(&self, options: &[ItemOption], reg: &OptionRegistry) -> bool {

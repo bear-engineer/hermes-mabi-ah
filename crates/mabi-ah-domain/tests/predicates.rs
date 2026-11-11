@@ -3,7 +3,7 @@ use mabi_ah_domain::blueprint::{BlueprintKind, blueprint_kind, is_blueprint_name
 use mabi_ah_domain::option::enchant_rank::EnchantRank;
 use mabi_ah_domain::option::predicate::{
     Cmp, EnchantPred, EnchantSlot, ErgPred, FilterExpr, ModPred, OptionPredicate,
-    PredicateParseError, ReforgePred,
+    PredicateParseError, ReforgePred, reforge_name_matches,
 };
 use mabi_ah_domain::option::{FilterParseError, ItemOption, OptionRegistry};
 use mabi_ah_domain::price_ko::price_ko;
@@ -365,4 +365,23 @@ fn blueprint_detection() {
     assert_eq!(blueprint_kind("옷본 - 가"), Some(BlueprintKind::Pattern));
     assert_eq!(blueprint_kind("가 심볼"), Some(BlueprintKind::Symbol));
     assert_eq!(blueprint_kind("검"), None);
+}
+
+#[test]
+fn reforge_name_rule_is_exact_or_trailing_words() {
+    assert!(reforge_name_matches("최대 공격력", "최대 공격력"));
+    assert!(reforge_name_matches("듀얼건 최대 대미지", "최대 대미지"));
+    assert!(reforge_name_matches("듀얼건 최대 대미지", " 최대 대미지 "));
+    assert!(!reforge_name_matches("듀얼건 최대 대미지", "대미지 최대"));
+    assert!(!reforge_name_matches("최대 공격력", "공격"));
+    assert!(!reforge_name_matches("최대 공격력", ""));
+}
+
+#[test]
+fn empty_enchant_rank_range_is_rejected() {
+    assert!(">=1,<=F".parse::<EnchantPred>().is_err());
+    assert!("접두>=A,<=E".parse::<EnchantPred>().is_err());
+    assert!("날카로운>=A,<=E".parse::<EnchantPred>().is_err());
+    assert!(">=F,<=A".parse::<EnchantPred>().is_ok());
+    assert!("=E".parse::<EnchantPred>().is_ok());
 }
