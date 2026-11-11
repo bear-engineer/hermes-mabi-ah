@@ -130,3 +130,24 @@ fn scalar(v: &OptionValue) -> Option<f64> {
         OptionValue::Rgb { .. } | OptionValue::Text(_) | OptionValue::Flag(_) => None,
     }
 }
+
+/// One filter expression: `!`-negated group of `|` alternatives.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FilterExpr {
+    pub negated: bool,
+    pub alternatives: Vec<OptionFilter>,
+}
+
+impl FromStr for FilterExpr {
+    type Err = FilterParseError;
+
+    fn from_str(_s: &str) -> Result<Self, Self::Err> {
+        todo!()
+    }
+}
+
+impl FilterExpr {
+    pub fn matches(&self, _options: &[ItemOption], _reg: &OptionRegistry) -> bool {
+        todo!()
+    }
+}
