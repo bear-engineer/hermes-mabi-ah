@@ -1,0 +1,79 @@
+---
+source: crates/mabi-ah-cli/tests/query_cli.rs
+expression: v
+---
+{
+  "command": "listings",
+  "data": {
+    "count": 2,
+    "items": [
+      {
+        "base_name": "롱 소드",
+        "category": "검",
+        "count": 2,
+        "display_name": "@롱 소드",
+        "expires_at": "2026-11-13T11:43:00Z",
+        "item_name": "@롱 소드",
+        "options": [
+          {
+            "desc": null,
+            "option_type": "공격",
+            "sub_type": null,
+            "value": "10",
+            "value2": "20"
+          }
+        ],
+        "total_price": 600,
+        "unit_price": 300
+      },
+      {
+        "base_name": "롱 소드",
+        "category": "검",
+        "count": 2,
+        "display_name": "@롱 소드",
+        "expires_at": "2026-11-13T11:43:00Z",
+        "item_name": "@롱 소드",
+        "options": [
+          {
+            "desc": null,
+            "option_type": "공격",
+            "sub_type": null,
+            "value": "10",
+            "value2": "20"
+          }
+        ],
+        "total_price": 200,
+        "unit_price": 100
+      }
+    ],
+    "pages": 1,
+    "stats": {
+      "listings": 2,
+      "max": 300,
+      "median": 100,
+      "min": 100,
+      "p25": 100,
+      "p75": 300,
+      "units": 4
+    },
+    "truncated": false
+  },
+  "error": null,
+  "meta": {
+    "attribution": "Data based on NEXON Open API",
+    "budget": {
+      "limit_today": 900,
+      "tier": "development",
+      "used_today": 1
+    },
+    "calls_used": 1,
+    "fetched_at": "[timestamp]",
+    "staleness": {
+      "lag_seconds": null,
+      "newest_trade_at": null,
+      "stale": true
+    }
+  },
+  "ok": true,
+  "schema": "mabi_ah/v1"
+}

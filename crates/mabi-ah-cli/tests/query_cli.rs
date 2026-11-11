@@ -145,7 +145,8 @@ fn listings_option_filter_applies() {
             200,
             listing_body(&[listing("@a", 5), {
                 let mut l = listing("@b", 6);
-                l["item_option"] = json!([{"option_type": "공격", "option_value": "1", "option_value2": "2"}]);
+                l["item_option"] =
+                    json!([{"option_type": "공격", "option_value": "1", "option_value2": "2"}]);
                 l
             }]),
         )
@@ -205,11 +206,17 @@ fn trades_and_search_and_horn_and_npc_shop() {
 
     let r = env.run(&["npc-shop", "--npc", "테스트상인", "--server", "류트"]);
     assert_eq!(r.code, 0, "stderr: {}", r.stderr);
-    assert_eq!(r.json()["data"]["tabs"][0]["items"][0]["prices"][0]["value"], 100);
+    assert_eq!(
+        r.json()["data"]["tabs"][0]["items"][0]["prices"][0]["value"],
+        100
+    );
 
     let r = env.run(&["horn", "--server", "류트"]);
     assert_eq!(r.code, 0, "stderr: {}", r.stderr);
-    assert_eq!(r.json()["data"]["messages"][0]["character_name"], "테스트캐릭터");
+    assert_eq!(
+        r.json()["data"]["messages"][0]["character_name"],
+        "테스트캐릭터"
+    );
 
     let r = env.run(&["horn", "--server", "류트", "--redact-names"]);
     assert_eq!(r.json()["data"]["messages"][0]["character_name"], "***");
@@ -310,7 +317,9 @@ fn missing_key_exits_4() {
 
 #[test]
 fn table_format_is_plain_text() {
-    let (base, _) = serve(Box::new(|_| (200, listing_body(&[listing("@롱 소드", 300)]))));
+    let (base, _) = serve(Box::new(|_| {
+        (200, listing_body(&[listing("@롱 소드", 300)]))
+    }));
     let env = Env::new(&base);
     let r = env.run(&["--format", "table", "listings", "--name", "@롱 소드"]);
     assert_eq!(r.code, 0, "stderr: {}", r.stderr);
@@ -322,7 +331,10 @@ fn table_format_is_plain_text() {
 #[test]
 fn snapshot_listings_envelope() {
     let (base, _) = serve(Box::new(|_| {
-        (200, listing_body(&[listing("@롱 소드", 300), listing("@롱 소드", 100)]))
+        (
+            200,
+            listing_body(&[listing("@롱 소드", 300), listing("@롱 소드", 100)]),
+        )
     }));
     let env = Env::new(&base);
     let r = env.run(&["listings", "--name", "@롱 소드", "--stats"]);
