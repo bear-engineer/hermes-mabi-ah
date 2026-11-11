@@ -1,0 +1,55 @@
+name: refresh-data
+# Weekly refresh of data/observed from the NEXON Open API; opens a PR (never pushes to main).
+on:
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+concurrency:
+  group: refresh-data
+  cancel-in-progress: false
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    env:
+      HAS_KEY: ${{ secrets.NEXON_OPEN_API_KEY != '' }}
+    steps:
+      - name: skip when the API key secret is absent
+        if: env.HAS_KEY != 'true'
+        run: echo "NEXON_OPEN_API_KEY secret is not set; skipping refresh."
+      - uses: actions/checkout@v5
+        if: env.HAS_KEY == 'true'
+      - uses: dtolnay/rust-toolchain@stable
+        if: env.HAS_KEY == 'true'
+      - name: refresh data/observed
+        if: env.HAS_KEY == 'true'
+        env:
+          NEXON_OPEN_API_KEY: ${{ secrets.NEXON_OPEN_API_KEY }}
+        run: sh scripts/refresh-data.sh
+      - name: checks
+        if: env.HAS_KEY == 'true'
+        run: |
+          sh scripts/check-data-freshness.sh
+          sh scripts/check-data-fields.sh
+      - name: open pull request
+        if: env.HAS_KEY == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.event.repository.default_branch }}
+        run: |
+          if git diff --quiet -- data/observed && [ -z "$(git ls-files --others --exclude-standard data/observed)" ]; then
+            echo "no data changes"
+            exit 0
+          fi
+          branch="data/refresh-$(date -u +%Y%m%d-%H%M%S)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add data/observed
+          git commit -m "chore(data): refresh observed catalog"
+          git push origin "$branch"
+          gh pr create --base "$BASE" --head "$branch" \
+            --title "chore(data): refresh observed catalog" \
+            --body "Automated weekly refresh of data/observed (NEXON Open API). A newly added file also needs one line in OBSERVED_FILES (crates/mabi-ah-cli/src/repo_data.rs)."
