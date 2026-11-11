@@ -76,30 +76,23 @@ pub fn remove_watch(store: &mut dyn WatchStore, id: &str) -> Result<(), AppError
     }
 }
 
-/// Returns only alerts that were new to the outbox.
+/// Outcome of one `check_watch` run.
+#[derive(Debug, Clone, PartialEq)]
+pub struct WatchCheck {
+    /// Every undelivered alert (now marked delivered); empty if any rule failed.
+    pub alerts: Vec<Alert>,
+    /// One error per rule whose API call (or evaluation) failed.
+    pub errors: Vec<AppError>,
+}
+
+/// Evaluates every rule, collecting per-rule errors, then drains the outbox.
 pub fn check_watch(
-    gw: &mut dyn AuctionGateway,
-    store: &dyn WatchStore,
-    outbox: &mut dyn Outbox,
-    opts: &OptionRegistry,
-) -> Result<Vec<Alert>, AppError> {
-    let mut fresh = Vec::new();
-    for rule in store.list()? {
-        let query = ListingQuery {
-            name: Some(rule.base_name.clone()),
-            category: rule.category.clone(),
-            cursor: None,
-        };
-        let page = gw.listings(&query)?;
-        let alerts =
-            evaluate(&rule, &page.items, opts).map_err(|e| AppError::Usage(e.to_string()))?;
-        for alert in alerts {
-            if outbox.enqueue_if_new(&alert)? {
-                fresh.push(alert);
-            }
-        }
-    }
-    Ok(fresh)
+    _gw: &mut dyn AuctionGateway,
+    _store: &dyn WatchStore,
+    _outbox: &mut dyn Outbox,
+    _opts: &OptionRegistry,
+) -> Result<WatchCheck, AppError> {
+    todo!("evaluate all rules and drain the outbox")
 }
 
 pub fn query_npc_shop(

@@ -66,6 +66,7 @@ struct FakeGw {
     trade_pages: Vec<Vec<Trade>>,
     search_items: Vec<Listing>,
     listings_err: Option<AppError>,
+    fail_name: Option<(String, AppError)>,
     search_calls: Vec<Vec<String>>,
     calls: u32,
 }
@@ -81,6 +82,11 @@ impl AuctionGateway for FakeGw {
         self.calls += 1;
         if let Some(e) = &self.listings_err {
             return Err(e.clone());
+        }
+        if let Some((name, e)) = &self.fail_name {
+            if q.name.as_deref() == Some(name.as_str()) {
+                return Err(e.clone());
+            }
         }
         Ok(paginate(&self.listing_pages, q.cursor.as_deref()))
     }
@@ -564,11 +570,50 @@ fn check_watch_dedupes_across_runs() {
     let mut ob = MemOutbox::default();
     let reg = OptionRegistry::default();
     let first = check_watch(&mut gw, &w, &mut ob, &reg).unwrap();
-    assert_eq!(first.len(), 1);
-    assert_eq!(first[0].listing.unit_price, 200);
+    assert!(first.errors.is_empty());
+    assert_eq!(first.alerts.len(), 1);
+    assert_eq!(first.alerts[0].listing.unit_price, 200);
     let second = check_watch(&mut gw, &w, &mut ob, &reg).unwrap();
-    assert!(second.is_empty(), "same listing must not alert twice");
-    assert_eq!(ob.drain().unwrap().len(), 1);
+    assert!(
+        second.alerts.is_empty(),
+        "same listing must not alert twice"
+    );
+    assert!(ob.drain().unwrap().is_empty(), "already delivered");
+}
+
+#[test]
+fn check_watch_survives_a_failing_rule_and_never_loses_alerts() {
+    let mut w = MemWatch::default();
+    add_watch(&mut w, &rule("a", Some(250))).unwrap();
+    let mut broken = rule("b", Some(250));
+    broken.base_name = "고장 검".to_owned();
+    add_watch(&mut w, &broken).unwrap();
+    let mut gw = FakeGw {
+        listing_pages: vec![vec![listing("테스트 검", "검", 200)]],
+        fail_name: Some((
+            "고장 검".to_owned(),
+            AppError::Upstream {
+                kind: mabi_ah_app::error::UpstreamKind::Internal,
+                nexon_code: None,
+            },
+        )),
+        ..FakeGw::default()
+    };
+    let mut ob = MemOutbox::default();
+    let reg = OptionRegistry::default();
+    // Run 1: B fails, A still evaluated and its alert kept (not delivered yet).
+    let r1 = check_watch(&mut gw, &w, &mut ob, &reg).unwrap();
+    assert_eq!(r1.errors.len(), 1);
+    assert!(r1.alerts.is_empty(), "held back while the run is failing");
+    // Run 2: B recovered, A's alert from run 1 is delivered exactly once.
+    gw.fail_name = None;
+    let r2 = check_watch(&mut gw, &w, &mut ob, &reg).unwrap();
+    assert!(r2.errors.is_empty());
+    assert_eq!(r2.alerts.len(), 1);
+    assert_eq!(r2.alerts[0].rule_id, "a");
+    // Run 3: nothing left.
+    let r3 = check_watch(&mut gw, &w, &mut ob, &reg).unwrap();
+    assert!(r3.alerts.is_empty() && r3.errors.is_empty());
 }
 
 // --- shop / horn / doctor / meter -------------------------------------------

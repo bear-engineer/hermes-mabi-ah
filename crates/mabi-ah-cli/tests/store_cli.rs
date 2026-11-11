@@ -356,3 +356,82 @@ fn categories_budget_config_and_doctor() {
         "these commands make no API calls"
     );
 }
+
+#[test]
+fn watch_check_partial_failure_keeps_alert_for_next_run() {
+    let healthy = Arc::new(AtomicUsize::new(0));
+    let flag = Arc::clone(&healthy);
+    let (base, _) = serve(Box::new(move |url| {
+        if url.contains("%EA%B3%A0%EC%9E%A5") && flag.load(Ordering::SeqCst) == 0 {
+            return (
+                400,
+                json!({"error": {"name": "OPENAPI00004", "message": "bad"}}).to_string(),
+            );
+        }
+        (
+            200,
+            json!({"auction_item": [{
+                "item_name": "@롱 소드", "item_display_name": "롱 소드", "item_count": 1,
+                "auction_item_category": "검", "auction_price_per_unit": 150,
+                "date_auction_expire": "2036-11-13T11:43:00.000Z", "item_option": null
+            }], "next_cursor": null})
+            .to_string(),
+        )
+    }));
+    let env = Env::new(&base);
+    for name in ["롱 소드", "고장 검"] {
+        let add = env.run(&["watch", "add", "--name", name, "--max-price", "200"]);
+        assert_eq!(add.code, 0, "stderr: {}", add.stderr);
+    }
+    let first = env.run(&["watch", "check", "--emit", "text"]);
+    assert_ne!(first.code, 0);
+    assert_eq!(
+        first.stdout, "",
+        "raw path must keep stdout empty on failure"
+    );
+    assert!(first.stderr.contains("mabi-ah"), "stderr: {}", first.stderr);
+    healthy.store(1, Ordering::SeqCst);
+    let second = env.run(&["watch", "check", "--emit", "text"]);
+    assert_eq!(second.code, 0, "stderr: {}", second.stderr);
+    assert_eq!(
+        second.stdout.lines().count(),
+        2,
+        "stdout: {}",
+        second.stdout
+    );
+    assert!(second.stdout.contains("롱 소드"));
+    let third = env.run(&["watch", "check", "--emit", "text"]);
+    assert_eq!(third.code, 0);
+    assert_eq!(third.stdout, "");
+}
+
+#[test]
+fn raw_paths_report_failure_on_stderr_only() {
+    let (base, _) = serve(Box::new(|_| {
+        (
+            403,
+            json!({"error": {"name": "OPENAPI00003", "message": "no"}}).to_string(),
+        )
+    }));
+    let env = Env::new(&base);
+    let c = env.run(&["collect", "--quiet"]);
+    assert_ne!(c.code, 0);
+    assert_eq!(c.stdout, "");
+    assert_eq!(
+        c.stderr.trim_end().lines().count(),
+        1,
+        "stderr: {}",
+        c.stderr
+    );
+    let w = env.run(&["watch", "add", "--name", "롱 소드"]);
+    assert_eq!(w.code, 0);
+    let t = env.run(&["watch", "check", "--emit", "text"]);
+    assert_ne!(t.code, 0);
+    assert_eq!(t.stdout, "");
+    assert_eq!(
+        t.stderr.trim_end().lines().count(),
+        1,
+        "stderr: {}",
+        t.stderr
+    );
+}

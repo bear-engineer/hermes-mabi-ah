@@ -148,8 +148,12 @@ fn alert_line(a: &Alert) -> String {
 fn check(ctx: &mut Context, a: &WatchCheckArgs) -> Result<Value, AppError> {
     let mut outbox = SqliteStore::open(&ctx.cfg.db_path)?;
     let mut gw = ctx.gateway()?;
-    let alerts = check_watch(&mut gw, &ctx.store, &mut outbox, &ctx.options)?;
+    let report = check_watch(&mut gw, &ctx.store, &mut outbox, &ctx.options)?;
     drop(outbox);
+    if let Some(first) = report.errors.into_iter().next() {
+        return Err(first);
+    }
+    let alerts = report.alerts;
     match a.emit {
         Emit::Text => {
             if alerts.is_empty() {
