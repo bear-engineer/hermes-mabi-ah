@@ -34,7 +34,11 @@ pub fn run(ctx: &mut Context, args: &RankArgs) -> Result<Value, AppError> {
         ByArg::Volume => (RankBy::Volume, "volume"),
         ByArg::Value => (RankBy::Value, "value"),
     };
-    let category = args.category.as_deref().map(str::trim).filter(|c| !c.is_empty());
+    let category = args
+        .category
+        .as_deref()
+        .map(str::trim)
+        .filter(|c| !c.is_empty());
     let to = ctx.clock.now();
     let rows = compute_rank(&ctx.store, to - window, to, by, args.top, category)?;
     Ok(json!({

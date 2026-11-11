@@ -6,12 +6,32 @@ use super::ItemOption;
 #[derive(Debug, Clone, PartialEq)]
 pub enum OptionValue {
     Number(i64),
-    Range { min: i64, max: i64 },
+    Range {
+        min: i64,
+        max: i64,
+    },
     Percent(f64),
-    CurrentMax { cur: i64, max: i64 },
-    Rgb { r: u8, g: u8, b: u8, sparkle: bool },
-    Leveled { effect: String, level: u32, amount: Option<String> },
-    Enchant { slot: String, name: String, rank: u32, effects: Vec<String> },
+    CurrentMax {
+        cur: i64,
+        max: i64,
+    },
+    Rgb {
+        r: u8,
+        g: u8,
+        b: u8,
+        sparkle: bool,
+    },
+    Leveled {
+        effect: String,
+        level: u32,
+        amount: Option<String>,
+    },
+    Enchant {
+        slot: String,
+        name: String,
+        rank: u32,
+        effects: Vec<String>,
+    },
     Text(String),
     Flag(bool),
     Raw(ItemOption),

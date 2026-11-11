@@ -14,7 +14,11 @@ pub struct Staleness {
 
 /// `lag = now - newest` (clamped at 0). Stale when there is no trade at all or
 /// the lag is strictly greater than `threshold`.
-pub fn assess(newest: Option<OffsetDateTime>, now: OffsetDateTime, threshold: Duration) -> Staleness {
+pub fn assess(
+    newest: Option<OffsetDateTime>,
+    now: OffsetDateTime,
+    threshold: Duration,
+) -> Staleness {
     let lag = newest.map(|n| (now - n).max(Duration::ZERO));
     Staleness {
         newest_trade_at: newest,

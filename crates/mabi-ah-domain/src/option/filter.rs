@@ -83,7 +83,11 @@ impl OptionFilter {
         if o.option_type != self.option_type {
             return false;
         }
-        if self.sub_type.as_deref().is_some_and(|s| o.sub_type.as_deref().map(str::trim) != Some(s)) {
+        if self
+            .sub_type
+            .as_deref()
+            .is_some_and(|s| o.sub_type.as_deref().map(str::trim) != Some(s))
+        {
             return false;
         }
         if self.op == FilterOp::Contains {
@@ -105,7 +109,12 @@ impl OptionFilter {
 }
 
 fn number(s: &str) -> Option<f64> {
-    s.trim().trim_end_matches('%').trim().parse::<f64>().ok().filter(|f| f.is_finite())
+    s.trim()
+        .trim_end_matches('%')
+        .trim()
+        .parse::<f64>()
+        .ok()
+        .filter(|f| f.is_finite())
 }
 
 /// Single comparable number for a parsed value (range -> max, current/max -> current).

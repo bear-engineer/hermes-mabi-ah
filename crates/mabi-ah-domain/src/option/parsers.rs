@@ -17,7 +17,9 @@ pub struct OptionRegistry {
 
 impl OptionRegistry {
     pub fn empty() -> Self {
-        Self { parsers: HashMap::new() }
+        Self {
+            parsers: HashMap::new(),
+        }
     }
 
     pub fn register(&mut self, p: Box<dyn OptionParser>) {
@@ -143,11 +145,17 @@ fn int(s: Option<&str>) -> Option<i64> {
 }
 
 fn range(o: &ItemOption) -> Option<OptionValue> {
-    Some(OptionValue::Range { min: int(o.value.as_deref())?, max: int(o.value2.as_deref())? })
+    Some(OptionValue::Range {
+        min: int(o.value.as_deref())?,
+        max: int(o.value2.as_deref())?,
+    })
 }
 
 fn current_max(o: &ItemOption) -> Option<OptionValue> {
-    Some(OptionValue::CurrentMax { cur: int(o.value.as_deref())?, max: int(o.value2.as_deref())? })
+    Some(OptionValue::CurrentMax {
+        cur: int(o.value.as_deref())?,
+        max: int(o.value2.as_deref())?,
+    })
 }
 
 fn percent(s: Option<&str>) -> Option<OptionValue> {
@@ -156,7 +164,11 @@ fn percent(s: Option<&str>) -> Option<OptionValue> {
 }
 
 fn rgb(o: &ItemOption) -> Option<OptionValue> {
-    let mut it = o.value.as_deref()?.split(',').map(|p| p.trim().parse::<u8>().ok());
+    let mut it = o
+        .value
+        .as_deref()?
+        .split(',')
+        .map(|p| p.trim().parse::<u8>().ok());
     let (r, g, b) = (it.next()??, it.next()??, it.next()??);
     if it.next().is_some() {
         return None;
@@ -178,14 +190,23 @@ fn leveled(s: Option<&str>) -> Option<OptionValue> {
         let (lv, amount) = inner.split_once(':')?;
         let level = lv.trim().strip_suffix("레벨")?.trim().parse().ok()?;
         let amount = Some(amount.trim().to_string()).filter(|a| !a.is_empty());
-        return Some(OptionValue::Leveled { effect: effect.trim().to_string(), level, amount });
+        return Some(OptionValue::Leveled {
+            effect: effect.trim().to_string(),
+            level,
+            amount,
+        });
     }
     // 에코스톤 각성: "효과 6 레벨 \n(15.00 )"
     let (head, tail) = s.split_once("레벨")?;
     let head = head.trim_end();
     let (effect, lv) = head.rsplit_once(char::is_whitespace)?;
     let level = lv.parse().ok()?;
-    let amount = tail.trim().trim_start_matches('(').trim_end_matches(')').trim().to_string();
+    let amount = tail
+        .trim()
+        .trim_start_matches('(')
+        .trim_end_matches(')')
+        .trim()
+        .to_string();
     Some(OptionValue::Leveled {
         effect: effect.trim().to_string(),
         level,
@@ -201,9 +222,20 @@ fn enchant(o: &ItemOption) -> Option<OptionValue> {
     let effects = o
         .desc
         .as_deref()
-        .map(|d| d.split(',').map(str::trim).filter(|e| !e.is_empty()).map(String::from).collect())
+        .map(|d| {
+            d.split(',')
+                .map(str::trim)
+                .filter(|e| !e.is_empty())
+                .map(String::from)
+                .collect()
+        })
         .unwrap_or_default();
-    Some(OptionValue::Enchant { slot, name: name.trim().to_string(), rank, effects })
+    Some(OptionValue::Enchant {
+        slot,
+        name: name.trim().to_string(),
+        rank,
+        effects,
+    })
 }
 
 fn text(s: Option<&str>) -> Option<OptionValue> {

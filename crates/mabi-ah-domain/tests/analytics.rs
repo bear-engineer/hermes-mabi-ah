@@ -28,12 +28,45 @@ fn trend_hourly_hand_computed() {
         trade("4", "a", "c", 999, 1, datetime!(2026-11-10 03:00 UTC)), // == to: excluded
         trade("5", "a", "c", 999, 1, datetime!(2026-11-09 23:59 UTC)), // < from: excluded
     ];
-    let gaps = [(datetime!(2026-11-10 01:30 UTC), datetime!(2026-11-10 02:10 UTC))];
-    let got = trend(&t, Bucket::Hour, datetime!(2026-11-10 00:00 UTC), datetime!(2026-11-10 03:00 UTC), &gaps);
+    let gaps = [(
+        datetime!(2026-11-10 01:30 UTC),
+        datetime!(2026-11-10 02:10 UTC),
+    )];
+    let got = trend(
+        &t,
+        Bucket::Hour,
+        datetime!(2026-11-10 00:00 UTC),
+        datetime!(2026-11-10 03:00 UTC),
+        &gaps,
+    );
     let want = vec![
-        TrendPoint { start: datetime!(2026-11-10 00:00 UTC), trades: 2, units: 5, vwap: Some(160.0), min: 100, max: 200, has_gap: false },
-        TrendPoint { start: datetime!(2026-11-10 01:00 UTC), trades: 0, units: 0, vwap: None, min: 0, max: 0, has_gap: true },
-        TrendPoint { start: datetime!(2026-11-10 02:00 UTC), trades: 1, units: 1, vwap: Some(50.0), min: 50, max: 50, has_gap: true },
+        TrendPoint {
+            start: datetime!(2026-11-10 00:00 UTC),
+            trades: 2,
+            units: 5,
+            vwap: Some(160.0),
+            min: 100,
+            max: 200,
+            has_gap: false,
+        },
+        TrendPoint {
+            start: datetime!(2026-11-10 01:00 UTC),
+            trades: 0,
+            units: 0,
+            vwap: None,
+            min: 0,
+            max: 0,
+            has_gap: true,
+        },
+        TrendPoint {
+            start: datetime!(2026-11-10 02:00 UTC),
+            trades: 1,
+            units: 1,
+            vwap: Some(50.0),
+            min: 50,
+            max: 50,
+            has_gap: true,
+        },
     ];
     assert_eq!(got, want);
 }
@@ -45,7 +78,13 @@ fn trend_daily_floors_from_and_uses_utc() {
         trade("2", "a", "c", 10, 1, datetime!(2026-11-10 23:00 UTC)),
         trade("3", "a", "c", 30, 1, datetime!(2026-11-11 01:00 UTC)),
     ];
-    let got = trend(&t, Bucket::Day, datetime!(2026-11-10 06:00 UTC), datetime!(2026-11-11 06:00 UTC), &[]);
+    let got = trend(
+        &t,
+        Bucket::Day,
+        datetime!(2026-11-10 06:00 UTC),
+        datetime!(2026-11-11 06:00 UTC),
+        &[],
+    );
     assert_eq!(got.len(), 2);
     assert_eq!(got[0].start, datetime!(2026-11-10 00:00 UTC));
     assert_eq!((got[0].trades, got[0].vwap), (1, Some(10.0)));
@@ -84,7 +123,13 @@ fn rank_by_volume_groups_base_and_breaks_ties_by_name() {
     assert_eq!(names(&got), ["b", "a", "d", "c"]);
     assert_eq!(
         got[1],
-        RankEntry { base_name: "a".into(), display_sample: "a 표시".into(), units: 3, value: 500, trades: 2 }
+        RankEntry {
+            base_name: "a".into(),
+            display_sample: "a 표시".into(),
+            units: 3,
+            value: 500,
+            trades: 2
+        }
     );
 }
 
@@ -109,7 +154,13 @@ use mabi_ah_domain::option::{ItemOption, OptionRegistry};
 use mabi_ah_domain::watch::{WatchRule, evaluate};
 
 fn opt(t: &str, v: &str) -> ItemOption {
-    ItemOption { option_type: t.into(), sub_type: None, value: Some(v.into()), value2: None, desc: None }
+    ItemOption {
+        option_type: t.into(),
+        sub_type: None,
+        value: Some(v.into()),
+        value2: None,
+        desc: None,
+    }
 }
 
 fn listing(raw: &str, cat: &str, price: u64, options: Vec<ItemOption>) -> Listing {
@@ -155,7 +206,10 @@ fn watch_matches_only_listings_satisfying_all_conditions() {
 fn watch_dedupe_key_is_deterministic_and_discriminating() {
     let reg = OptionRegistry::default();
     let l = listing("@a", "W", 100, vec![opt("x", "foo")]);
-    let r = WatchRule { filters: vec![], ..rule() };
+    let r = WatchRule {
+        filters: vec![],
+        ..rule()
+    };
     let a = evaluate(&r, std::slice::from_ref(&l), &reg).unwrap();
     assert_eq!(a[0].dedupe_key, "r1|a 표시|100|1794441600|x//foo//");
     let again = evaluate(&r, std::slice::from_ref(&l), &reg).unwrap();
@@ -168,9 +222,23 @@ fn watch_dedupe_key_is_deterministic_and_discriminating() {
 #[test]
 fn watch_no_constraints_matches_by_base_only_and_bad_filter_errors() {
     let reg = OptionRegistry::default();
-    let bare = WatchRule { id: "r2".into(), base_name: "a".into(), max_unit_price: None, category: None, filters: vec![] };
-    assert_eq!(evaluate(&bare, &[listing("a", "Z", 9_999, vec![])], &reg).unwrap().len(), 1);
-    let bad = WatchRule { filters: vec!["nonsense".into()], ..bare };
+    let bare = WatchRule {
+        id: "r2".into(),
+        base_name: "a".into(),
+        max_unit_price: None,
+        category: None,
+        filters: vec![],
+    };
+    assert_eq!(
+        evaluate(&bare, &[listing("a", "Z", 9_999, vec![])], &reg)
+            .unwrap()
+            .len(),
+        1
+    );
+    let bad = WatchRule {
+        filters: vec!["nonsense".into()],
+        ..bare
+    };
     assert!(evaluate(&bad, &[listing("a", "Z", 1, vec![])], &reg).is_err());
 }
 
@@ -194,12 +262,30 @@ fn staleness_table() {
         (Some(datetime!(2026-11-10 10:11 UTC)), Some(0), false), // future clamps to 0
     ];
     for (newest, lag, stale) in cases {
-        assert_eq!(assess(newest, now, th), Staleness { newest_trade_at: newest, lag_seconds: lag, stale });
+        assert_eq!(
+            assess(newest, now, th),
+            Staleness {
+                newest_trade_at: newest,
+                lag_seconds: lag,
+                stale
+            }
+        );
     }
 }
 
 #[test]
 fn staleness_no_trades_is_stale() {
-    let s = assess(None, datetime!(2026-11-10 10:10 UTC), DEFAULT_STALE_THRESHOLD);
-    assert_eq!(s, Staleness { newest_trade_at: None, lag_seconds: None, stale: true });
+    let s = assess(
+        None,
+        datetime!(2026-11-10 10:10 UTC),
+        DEFAULT_STALE_THRESHOLD,
+    );
+    assert_eq!(
+        s,
+        Staleness {
+            newest_trade_at: None,
+            lag_seconds: None,
+            stale: true
+        }
+    );
 }

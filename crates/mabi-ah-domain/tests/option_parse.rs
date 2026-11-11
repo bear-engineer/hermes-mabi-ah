@@ -23,8 +23,19 @@ fn num(t: &str, v: &str) -> V {
 #[test]
 fn plain_numbers() {
     for t in [
-        "품질", "남은 거래 횟수", "방어력", "보호", "마법 방어력", "마법 보호", "숙련", "보석 개조",
-        "피어싱 레벨", "에코스톤 등급", "남은 사용 횟수", "남은 전용 해제 가능 횟수", "세공 랭크",
+        "품질",
+        "남은 거래 횟수",
+        "방어력",
+        "보호",
+        "마법 방어력",
+        "마법 보호",
+        "숙련",
+        "보석 개조",
+        "피어싱 레벨",
+        "에코스톤 등급",
+        "남은 사용 횟수",
+        "남은 전용 해제 가능 횟수",
+        "세공 랭크",
     ] {
         assert_eq!(num(t, "7"), V::Number(7), "{t}");
     }
@@ -39,27 +50,47 @@ fn numbers_with_sub_type() {
         ("에코스톤 고유 능력", "지력"),
         ("특별 개조", "R"),
     ] {
-        assert_eq!(p(&o(t, Some(s), Some("8"), None, None)), V::Number(8), "{t}");
+        assert_eq!(
+            p(&o(t, Some(s), Some("8"), None, None)),
+            V::Number(8),
+            "{t}"
+        );
     }
 }
 
 #[test]
 fn piercing_level_with_plus_value2() {
-    assert_eq!(p(&o("피어싱 레벨", None, Some("1"), Some("+2"), None)), V::Number(1));
+    assert_eq!(
+        p(&o("피어싱 레벨", None, Some("1"), Some("+2"), None)),
+        V::Number(1)
+    );
 }
 
 #[test]
 fn current_max() {
     for t in ["내구력", "일반 개조"] {
-        assert_eq!(p(&o(t, None, Some("5"), Some("9"), None)), V::CurrentMax { cur: 5, max: 9 }, "{t}");
+        assert_eq!(
+            p(&o(t, None, Some("5"), Some("9"), None)),
+            V::CurrentMax { cur: 5, max: 9 },
+            "{t}"
+        );
     }
-    assert_eq!(p(&o("에르그", Some("S"), Some("50"), Some("50"), None)), V::CurrentMax { cur: 50, max: 50 });
+    assert_eq!(
+        p(&o("에르그", Some("S"), Some("50"), Some("50"), None)),
+        V::CurrentMax { cur: 50, max: 50 }
+    );
 }
 
 #[test]
 fn ranges() {
-    assert_eq!(p(&o("공격", None, Some("2"), Some("5"), None)), V::Range { min: 2, max: 5 });
-    assert_eq!(p(&o("부상률", None, Some("10%"), Some("20%"), None)), V::Range { min: 10, max: 20 });
+    assert_eq!(
+        p(&o("공격", None, Some("2"), Some("5"), None)),
+        V::Range { min: 2, max: 5 }
+    );
+    assert_eq!(
+        p(&o("부상률", None, Some("10%"), Some("20%"), None)),
+        V::Range { min: 10, max: 20 }
+    );
 }
 
 #[test]
@@ -71,33 +102,86 @@ fn percents() {
 
 #[test]
 fn colors() {
-    assert_eq!(num("색상", "12,11,18"), V::Rgb { r: 12, g: 11, b: 18, sparkle: false });
     assert_eq!(
-        p(&o("아이템 색상", Some("파트 A"), Some("128,128,128"), None, None)),
-        V::Rgb { r: 128, g: 128, b: 128, sparkle: false }
+        num("색상", "12,11,18"),
+        V::Rgb {
+            r: 12,
+            g: 11,
+            b: 18,
+            sparkle: false
+        }
     );
     assert_eq!(
-        p(&o("아이템 색상", Some("파트 B"), Some("1,2,3"), None, Some("(반짝)"))),
-        V::Rgb { r: 1, g: 2, b: 3, sparkle: true }
+        p(&o(
+            "아이템 색상",
+            Some("파트 A"),
+            Some("128,128,128"),
+            None,
+            None
+        )),
+        V::Rgb {
+            r: 128,
+            g: 128,
+            b: 128,
+            sparkle: false
+        }
+    );
+    assert_eq!(
+        p(&o(
+            "아이템 색상",
+            Some("파트 B"),
+            Some("1,2,3"),
+            None,
+            Some("(반짝)")
+        )),
+        V::Rgb {
+            r: 1,
+            g: 2,
+            b: 3,
+            sparkle: true
+        }
     );
 }
 
 #[test]
 fn leveled() {
     assert_eq!(
-        p(&o("세공 옵션", Some("1"), Some("천옷만들기 성공률(3레벨:2.40 % 증가)"), None, None)),
-        V::Leveled { effect: "천옷만들기 성공률".into(), level: 3, amount: Some("2.40 % 증가".into()) }
+        p(&o(
+            "세공 옵션",
+            Some("1"),
+            Some("천옷만들기 성공률(3레벨:2.40 % 증가)"),
+            None,
+            None
+        )),
+        V::Leveled {
+            effect: "천옷만들기 성공률".into(),
+            level: 3,
+            amount: Some("2.40 % 증가".into())
+        }
     );
     assert_eq!(
-        num("에코스톤 각성 능력", "음악적 지식 훌륭한 연주 비율 6 레벨 \n(15.00 )"),
-        V::Leveled { effect: "음악적 지식 훌륭한 연주 비율".into(), level: 6, amount: Some("15.00".into()) }
+        num(
+            "에코스톤 각성 능력",
+            "음악적 지식 훌륭한 연주 비율 6 레벨 \n(15.00 )"
+        ),
+        V::Leveled {
+            effect: "음악적 지식 훌륭한 연주 비율".into(),
+            level: 6,
+            amount: Some("15.00".into())
+        }
     );
 }
 
 #[test]
 fn enchants() {
     assert_eq!(
-        p(&o("인챈트", Some("접두"), Some("광포한 (랭크 7)"), None, Some("대미지밸런스 1 감소,최대대미지 12 증가"))),
+        p(&o(
+            "인챈트",
+            Some("접두"),
+            Some("광포한 (랭크 7)"),
+            None,
+            Some("대미지밸런스 1 감소,최대대미지 12 증가")
+        )),
         V::Enchant {
             slot: "접두".into(),
             name: "광포한".into(),
@@ -106,8 +190,19 @@ fn enchants() {
         }
     );
     assert_eq!(
-        p(&o("인챈트 종류", Some("접미"), Some("궤도 (랭크 7)"), None, None)),
-        V::Enchant { slot: "접미".into(), name: "궤도".into(), rank: 7, effects: vec![] }
+        p(&o(
+            "인챈트 종류",
+            Some("접미"),
+            Some("궤도 (랭크 7)"),
+            None,
+            None
+        )),
+        V::Enchant {
+            slot: "접미".into(),
+            name: "궤도".into(),
+            rank: 7,
+            effects: vec![]
+        }
     );
 }
 
@@ -123,7 +218,13 @@ fn texts() {
         assert_eq!(num(t, v), V::Text(v.into()), "{t}");
     }
     assert_eq!(
-        p(&o("세트 효과", Some("1"), Some("플레이머 강화"), Some("1"), None)),
+        p(&o(
+            "세트 효과",
+            Some("1"),
+            Some("플레이머 강화"),
+            Some("1"),
+            None
+        )),
         V::Text("플레이머 강화".into())
     );
 }
@@ -166,7 +267,10 @@ fn adding_a_type_is_registering_a_parser() {
     }
     let mut r = OptionRegistry::default();
     r.register(Box::new(Foo));
-    assert_eq!(r.parse(&o("새 타입", None, None, None, None)).value, V::Flag(true));
+    assert_eq!(
+        r.parse(&o("새 타입", None, None, None, None)).value,
+        V::Flag(true)
+    );
 }
 
 proptest! {
@@ -205,8 +309,15 @@ mod filter {
     #[test]
     fn parses_grammar() {
         let x = f("토템 효과:지력>=8");
-        assert_eq!((x.option_type.as_str(), x.sub_type.as_deref(), x.op, x.value.as_str()),
-            ("토템 효과", Some("지력"), FilterOp::Ge, "8"));
+        assert_eq!(
+            (
+                x.option_type.as_str(),
+                x.sub_type.as_deref(),
+                x.op,
+                x.value.as_str()
+            ),
+            ("토템 효과", Some("지력"), FilterOp::Ge, "8")
+        );
         let x = f("세공 옵션~최대 공격력");
         assert_eq!((x.sub_type, x.op), (None, FilterOp::Contains));
         assert_eq!(f("에르그>=40").op, FilterOp::Ge);
@@ -217,10 +328,22 @@ mod filter {
 
     #[test]
     fn rejects_invalid() {
-        assert!(matches!("에르그".parse::<OptionFilter>(), Err(FilterParseError::MissingOperator(_))));
-        assert!(matches!(">=3".parse::<OptionFilter>(), Err(FilterParseError::MissingType(_))));
-        assert!(matches!("에르그>=".parse::<OptionFilter>(), Err(FilterParseError::MissingValue(_))));
-        assert!(matches!("에르그>=abc".parse::<OptionFilter>(), Err(FilterParseError::NotNumeric(_))));
+        assert!(matches!(
+            "에르그".parse::<OptionFilter>(),
+            Err(FilterParseError::MissingOperator(_))
+        ));
+        assert!(matches!(
+            ">=3".parse::<OptionFilter>(),
+            Err(FilterParseError::MissingType(_))
+        ));
+        assert!(matches!(
+            "에르그>=".parse::<OptionFilter>(),
+            Err(FilterParseError::MissingValue(_))
+        ));
+        assert!(matches!(
+            "에르그>=abc".parse::<OptionFilter>(),
+            Err(FilterParseError::NotNumeric(_))
+        ));
         assert!("".parse::<OptionFilter>().is_err());
     }
 
@@ -238,7 +361,13 @@ mod filter {
 
     #[test]
     fn contains_match() {
-        let seg = o("세공 옵션", Some("1"), Some("최대 공격력(5레벨:3 증가)"), None, None);
+        let seg = o(
+            "세공 옵션",
+            Some("1"),
+            Some("최대 공격력(5레벨:3 증가)"),
+            None,
+            None,
+        );
         assert!(hit("세공 옵션~최대 공격력", &[seg]));
         let ench = o("인챈트", Some("접두"), Some("광포한 (랭크 7)"), None, None);
         assert!(hit("인챈트:접두~광포한", std::slice::from_ref(&ench)));

@@ -108,7 +108,11 @@ fn add(ctx: &mut Context, a: &WatchAddArgs) -> Result<Value, AppError> {
         return Err(AppError::Usage("--name must not be empty".to_owned()));
     }
     parse_filters(&a.option)?;
-    let category = a.category.as_deref().map(str::trim).filter(|c| !c.is_empty());
+    let category = a
+        .category
+        .as_deref()
+        .map(str::trim)
+        .filter(|c| !c.is_empty());
     let rule = WatchRule {
         id: rule_id(name, a.max_price, category, &a.option),
         base_name: name.to_owned(),

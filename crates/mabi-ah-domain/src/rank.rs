@@ -26,7 +26,10 @@ pub struct RankEntry {
 pub fn rank(trades: &[Trade], by: RankBy, top: usize, category: Option<&str>) -> Vec<RankEntry> {
     let mut groups: Vec<RankEntry> = Vec::new();
     let mut index: HashMap<&str, usize> = HashMap::new();
-    for t in trades.iter().filter(|t| category.is_none_or(|c| t.category == c)) {
+    for t in trades
+        .iter()
+        .filter(|t| category.is_none_or(|c| t.category == c))
+    {
         let value = t.unit_price.saturating_mul(t.count);
         let i = *index.entry(t.name.base.as_str()).or_insert_with(|| {
             groups.push(RankEntry {
@@ -47,7 +50,11 @@ pub fn rank(trades: &[Trade], by: RankBy, top: usize, category: Option<&str>) ->
         RankBy::Volume => e.units,
         RankBy::Value => e.value,
     };
-    groups.sort_by(|a, b| key(b).cmp(&key(a)).then_with(|| a.base_name.cmp(&b.base_name)));
+    groups.sort_by(|a, b| {
+        key(b)
+            .cmp(&key(a))
+            .then_with(|| a.base_name.cmp(&b.base_name))
+    });
     groups.truncate(top);
     groups
 }

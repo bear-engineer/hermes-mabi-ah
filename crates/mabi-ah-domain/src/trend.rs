@@ -39,7 +39,9 @@ pub fn trend(
     };
     let from_utc = from.to_offset(UtcOffset::UTC);
     let floored = match bucket {
-        Bucket::Hour => from_utc.replace_time(Time::from_hms(from_utc.hour(), 0, 0).unwrap_or(Time::MIDNIGHT)),
+        Bucket::Hour => {
+            from_utc.replace_time(Time::from_hms(from_utc.hour(), 0, 0).unwrap_or(Time::MIDNIGHT))
+        }
         Bucket::Day => from_utc.replace_time(Time::MIDNIGHT),
     };
     let mut points = Vec::new();
@@ -48,10 +50,9 @@ pub fn trend(
         let end = start + step;
         let (mut n, mut units, mut value) = (0u64, 0u64, 0u128);
         let (mut min, mut max) = (u64::MAX, 0u64);
-        for t in trades
-            .iter()
-            .filter(|t| t.traded_at >= from && t.traded_at < to && t.traded_at >= start && t.traded_at < end)
-        {
+        for t in trades.iter().filter(|t| {
+            t.traded_at >= from && t.traded_at < to && t.traded_at >= start && t.traded_at < end
+        }) {
             n += 1;
             units = units.saturating_add(t.count);
             value += u128::from(t.unit_price) * u128::from(t.count);

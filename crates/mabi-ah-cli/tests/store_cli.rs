@@ -155,7 +155,14 @@ fn collect_twice_with_overlap_keeps_unique_rows() {
 fn collect_quiet_prints_nothing_and_releases_lock() {
     let (base, _) = overlapping_server();
     let env = Env::new(&base);
-    let r = env.run(&["collect", "--quiet", "--max-calls", "5", "--retain-days", "30"]);
+    let r = env.run(&[
+        "collect",
+        "--quiet",
+        "--max-calls",
+        "5",
+        "--retain-days",
+        "30",
+    ]);
     assert_eq!(r.code, 0, "stderr: {}", r.stderr);
     assert_eq!(r.stdout, "");
     assert_eq!(r.stderr, "");
@@ -180,7 +187,15 @@ fn trend_and_rank_json_shape() {
     let env = Env::new(&base);
     assert_eq!(env.run(&["collect"]).code, 0);
 
-    let t = env.run(&["trend", "--name", "@롱 소드", "--window", "24h", "--bucket", "hour"]);
+    let t = env.run(&[
+        "trend",
+        "--name",
+        "@롱 소드",
+        "--window",
+        "24h",
+        "--bucket",
+        "hour",
+    ]);
     assert_eq!(t.code, 0, "stderr: {}", t.stderr);
     let v = t.json();
     assert_eq!(v["command"], "trend");
@@ -195,7 +210,17 @@ fn trend_and_rank_json_shape() {
     assert_eq!(total, 3);
     assert!(v["data"]["gaps"].is_array());
 
-    let r = env.run(&["rank", "--by", "value", "--window", "24h", "--category", "검", "--top", "5"]);
+    let r = env.run(&[
+        "rank",
+        "--by",
+        "value",
+        "--window",
+        "24h",
+        "--category",
+        "검",
+        "--top",
+        "5",
+    ]);
     assert_eq!(r.code, 0, "stderr: {}", r.stderr);
     let v = r.json();
     assert_eq!(v["data"]["by"], "value");
@@ -231,8 +256,16 @@ fn watch_add_check_fires_once_then_nothing() {
     let (base, _) = listings_server();
     let env = Env::new(&base);
     let add = env.run(&[
-        "watch", "add", "--name", "@롱 소드", "--max-price", "200", "--category", "검",
-        "--option", "공격>=5",
+        "watch",
+        "add",
+        "--name",
+        "@롱 소드",
+        "--max-price",
+        "200",
+        "--category",
+        "검",
+        "--option",
+        "공격>=5",
     ]);
     assert_eq!(add.code, 0, "stdout: {} stderr: {}", add.stdout, add.stderr);
     let id = add.json()["data"]["id"].as_str().unwrap().to_owned();
@@ -288,7 +321,11 @@ fn categories_budget_config_and_doctor() {
 
     let c = env.run(&["categories"]).json();
     let items = c["data"]["items"].as_array().unwrap();
-    assert!(items.iter().any(|i| i["name"] == "검" && i["source"] == "spec"));
+    assert!(
+        items
+            .iter()
+            .any(|i| i["name"] == "검" && i["source"] == "spec")
+    );
 
     let b = env.run(&["budget"]).json();
     assert_eq!(b["data"]["used_today"], 0);
@@ -297,7 +334,12 @@ fn categories_budget_config_and_doctor() {
 
     let cfg = env.run(&["config"]);
     assert_eq!(cfg.code, 0, "stderr: {}", cfg.stderr);
-    assert!(cfg.json()["data"]["db_path"].as_str().unwrap().ends_with("t.db"));
+    assert!(
+        cfg.json()["data"]["db_path"]
+            .as_str()
+            .unwrap()
+            .ends_with("t.db")
+    );
 
     let d = env.run(&["doctor"]);
     assert_eq!(d.code, 0, "stderr: {}", d.stderr);
@@ -309,5 +351,8 @@ fn categories_budget_config_and_doctor() {
         assert!(!r.stdout.contains(KEY) && !r.stderr.contains(KEY));
         assert!(!r.stdout.contains(&KEY[..16]));
     }
-    assert!(seen.lock().unwrap().is_empty(), "these commands make no API calls");
+    assert!(
+        seen.lock().unwrap().is_empty(),
+        "these commands make no API calls"
+    );
 }
