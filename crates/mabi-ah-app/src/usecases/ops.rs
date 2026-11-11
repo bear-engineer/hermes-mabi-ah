@@ -149,16 +149,29 @@ pub fn query_npc_shop(
     gw.npc_shop(npc, server, channel)
 }
 
-/// With `redact_names`, every character name becomes `***`.
+/// With `redact_names`, every character name becomes `***`: the
+/// `character_name` field, every occurrence of that name inside the message,
+/// and the in-game shout prefix `<speaker> : ` at the start of the message.
 pub fn query_horn(
     gw: &mut dyn HornGateway,
     server: &str,
     redact_names: bool,
 ) -> Result<Vec<HornMessage>, AppError> {
+    const MASK: &str = "***";
+    const PREFIX_SEP: &str = " : ";
     let mut messages = gw.horn(server)?;
     if redact_names {
         for m in &mut messages {
-            m.character_name = "***".to_owned();
+            if !m.character_name.is_empty() {
+                m.message = m.message.replace(m.character_name.as_str(), MASK);
+            }
+            if let Some(pos) = m.message.find(PREFIX_SEP)
+                && pos > 0
+                && !m.message[..pos].contains(char::is_whitespace)
+            {
+                m.message = format!("{MASK}{}", &m.message[pos..]);
+            }
+            m.character_name = MASK.to_owned();
         }
     }
     Ok(messages)
