@@ -30,7 +30,11 @@ const FACT_EQUIPMENT_TYPES: &str = include_str!("../../../data/facts/equipment_t
 /// Observed files written by `catalog export` into `data/observed/`.
 /// To embed a new file add one line, e.g.
 /// `include_str!("../../../data/observed/enchants.json"),`
-pub const OBSERVED_FILES: &[&str] = &[];
+pub const OBSERVED_FILES: &[&str] = &[
+    include_str!("../../../data/observed/enchants.json"),
+    include_str!("../../../data/observed/reforges.json"),
+    include_str!("../../../data/observed/option_values.json"),
+];
 
 /// Labanyu reference files (`scripts/labanyu/build.py` output); kind read from the file.
 pub const REFERENCE_FILES: &[&str] = &[

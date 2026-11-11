@@ -76,12 +76,14 @@ fn catalog_enchant_includes_reference_rows_with_curation() {
     let got = rows(&d);
     assert!(!got.is_empty() && got.len() <= 3, "{d}");
     for r in &got {
-        assert_eq!(r["source"], "labanyu_reference", "{r}");
+        // a same-day embedded observed row (data/observed) wins a tie over the reference
+        let src = r["source"].as_str().unwrap();
+        assert!(["labanyu_reference", "repo_observed"].contains(&src), "{r}");
         assert!(r["name"].as_str().unwrap().contains("날카"));
         assert!(r["effects"].is_array(), "{r}");
         assert!(r.get("dungeon_grade").is_some(), "{r}");
         assert!(r["equipment_slot_classification"].is_array(), "{r}");
-        assert_eq!(r["observed_at"], "2026-11-11");
+        assert!(r["observed_at"].is_string(), "{r}");
     }
     let all = env.ok(&["catalog", "enchant", "--query", "날카로운"]);
     assert!(

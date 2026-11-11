@@ -259,8 +259,12 @@ fn listings_record_catalog_and_catalog_commands_read_it() {
 
     let v = env.run(&["catalog", "values", "--type", "에르그"]).ok();
     let rows = v["data"]["rows"].as_array().unwrap();
-    assert_eq!(rows[0]["value"], "S");
-    assert_eq!(rows[0]["source"], "local_observed");
+    // embedded data/observed rows are listed too
+    assert!(
+        rows.iter()
+            .any(|r| r["value"] == "S" && r["source"] == "local_observed"),
+        "{v}"
+    );
 }
 
 #[test]
