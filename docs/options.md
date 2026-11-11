@@ -101,10 +101,10 @@
 mabi-ah listings --category 장갑 --enchant '접두:날카로운' --enchant-rank '>=E'
 
 # 어느 슬롯이든 최대 공격력 세공 18 이상, 도면류 제외
-mabi-ah listings --category "한손 검" --reforge '최대 공격력>=18' --exclude-blueprints
+mabi-ah listings --category 검 --reforge '최대 공격력>=18' --exclude-blueprints
 
 # 2번 슬롯 최대 공격력 18 이상이고 에르그 S 40 이상
-mabi-ah listings --category "한손 검" --reforge '2:최대 공격력>=18' --erg 'S>=40'
+mabi-ah listings --category 검 --reforge '2:최대 공격력>=18' --erg 'S>=40'
 
 # 인챈트 불가가 아니고 색상에 빨강이나 파랑이 들어간 검
 mabi-ah listings --category 검 -o '!인챈트 불가능=true' -o '색상~빨강|파랑'
@@ -117,3 +117,5 @@ mabi-ah option-prices --category 토템 --family "토템 효과" --max-pages 2
 ```
 
 `watch add -o`는 v0.1 문법(`<종류>[:<하위>](>=|<=|=|~)<값>`)만 받습니다. `!`, `|`, 옵션군 전용 플래그는 감시 규칙에 쓸 수 없습니다.
+
+> `listings`/`trades`의 `--category`는 경매장 카테고리(예: `검`, `장갑`; `catalog reference --kind auction_item_categories`)입니다. `catalog reforge --category`의 세공 장비 유형(`한손 검` 등)과 다릅니다.

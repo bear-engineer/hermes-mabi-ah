@@ -122,8 +122,8 @@ The auction API cannot search by option. `mabi-ah` fetches listings and filters 
 
 ```sh
 mabi-ah listings --category 장갑 --enchant '접두:날카로운' --enchant-rank '>=E'
-mabi-ah listings --category "한손 검" --reforge '최대 공격력>=18' --exclude-blueprints
-mabi-ah listings --category "한손 검" --reforge '2:최대 공격력>=18' --erg 'S>=40'
+mabi-ah listings --category 검 --reforge '최대 공격력>=18' --exclude-blueprints
+mabi-ah listings --category 검 --reforge '2:최대 공격력>=18' --erg 'S>=40'
 mabi-ah listings --category 검 -o '!인챈트 불가능=true' -o '색상~빨강|파랑'
 mabi-ah option-prices --category 토템 --family "토템 효과" --max-pages 2
 ```
@@ -131,7 +131,7 @@ mabi-ah option-prices --category 토템 --family "토템 효과" --max-pages 2
 A reforge option name written without its space (real output, 0 API calls, shortened):
 
 ```text
-$ mabi-ah listings --category "한손 검" --reforge '최대공격력>=18'
+$ mabi-ah listings --category 검 --reforge '최대공격력>=18'
 mabi-ah: 찾을 수 없습니다: reforge option '최대공격력' [not_found]
 {"schema":"mabi_ah/v1","ok":false,"command":"listings","data":null,"meta":{...,"calls_used":0,...},
  "error":{"code":"not_found","nexon_code":null,"message_ko":"찾을 수 없습니다: reforge option '최대공격력'",

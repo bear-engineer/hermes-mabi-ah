@@ -15,8 +15,8 @@ pub struct DescribeArgs {}
 pub const EXAMPLES: &[&str] = &[
     "mabi-ah listings --name \"@롱 소드\" --stats",
     "mabi-ah listings --category 장갑 --enchant '접두:날카로운' --enchant-rank '>=E'",
-    "mabi-ah listings --category \"한손 검\" --reforge '최대 공격력>=18' --exclude-blueprints",
-    "mabi-ah listings --category \"한손 검\" --reforge '2:최대 공격력>=18' --erg 'S>=40'",
+    "mabi-ah listings --category 검 --reforge '최대 공격력>=18' --exclude-blueprints",
+    "mabi-ah listings --category 검 --reforge '2:최대 공격력>=18' --erg 'S>=40'",
     "mabi-ah listings --category 검 -o '!인챈트 불가능=true' -o '색상~빨강|파랑'",
     "mabi-ah trades --name \"@롱 소드\" --stats --enchant-rank '>=E'",
     "mabi-ah search 드래곤 블레이드 --exclude-blueprints",

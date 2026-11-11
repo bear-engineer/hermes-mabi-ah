@@ -92,6 +92,8 @@ mabi-ah config         # 해석된 설정(키 값은 출력 안 됨)
 mabi-ah describe       # 명령·플래그·필터 문법 전체 (JSON)
 ```
 
+`listings`/`trades`의 `--category`는 경매장 카테고리(`catalog reference --kind auction_item_categories`, 예: `검`, `장갑`)입니다. 세공 장비 유형(`한손 검` 등, `catalog reforge --category`에서 쓰는 값)과 다르며, 잘못 넣으면 API가 OPENAPI00004로 거부하고 호출 1회를 씁니다.
+
 `catalog reference --kind` 값: `auction_item_categories`, `reforge_equipment_types`, `reforge_option_names`, `totem_abilities`, `echostone_awakening_abilities`, `murias_relic_effects`, `set_bonus_names`.
 
 `collect --quiet`와 `watch check --emit text`는 envelope 없이 텍스트만(없으면 무출력) 내보낸다.
@@ -109,8 +111,8 @@ mabi-ah describe       # 명령·플래그·필터 문법 전체 (JSON)
 
    ```sh
    mabi-ah listings --category 장갑 --enchant '접두:날카로운' --enchant-rank '>=E'
-   mabi-ah listings --category "한손 검" --reforge '최대 공격력>=18' --exclude-blueprints
-   mabi-ah listings --category "한손 검" --reforge '2:최대 공격력>=18' --erg 'S>=40'
+   mabi-ah listings --category 검 --reforge '최대 공격력>=18' --exclude-blueprints
+   mabi-ah listings --category 검 --reforge '2:최대 공격력>=18' --erg 'S>=40'
    mabi-ah listings --category 검 -o '!인챈트 불가능=true' -o '색상~빨강|파랑'
    ```
 4. 옵션별 시세 표가 필요하면 `mabi-ah option-prices --category <카테고리> --family <option_type>`. `--family`는 정확한 `option_type`(예: `세공 옵션`, `인챈트`, `에르그`, `토템 효과`)이다. 행: `value`, `level`, `min_price`, `min_price_ko`, `count`.
