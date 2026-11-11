@@ -38,5 +38,13 @@ obs "$T/g" 2026-01-01 2026-01-31 '{"nested":[{"Seller":"x"}]}'
 expect 1 "nested key seller fails" env DATA_DIR="$T/g" sh scripts/check-data-fields.sh
 obs "$T/h" 2026-01-01 2026-01-31 '{"name":"live_0123456789abcdef0123456789abcdef"}'
 expect 1 "key-like string fails" env DATA_DIR="$T/h" sh scripts/check-data-fields.sh
+obs "$T/i" 2026-01-01 2026-01-31 '{"user":"x"}'
+expect 1 "key user fails" env DATA_DIR="$T/i" sh scripts/check-data-fields.sh
+obs "$T/j" 2026-01-01 2026-01-31 '{"최저가":5}'
+expect 1 "key 최저가 fails" env DATA_DIR="$T/j" sh scripts/check-data-fields.sh
+obs "$T/k" 2026-01-01 2026-01-31 '{"amount":5}'
+expect 1 "key amount fails" env DATA_DIR="$T/k" sh scripts/check-data-fields.sh
+obs "$T/l" 2026-01-01 2027-06-01
+expect 1 "expires_at > observed_to + 30d fails" env DATA_DIR="$T/l" TODAY=2026-01-02 sh scripts/check-data-freshness.sh
 expect 0 "real data passes" sh scripts/check-data-fields.sh
 exit "$fail"

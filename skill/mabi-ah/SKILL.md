@@ -24,7 +24,7 @@ metadata:
 
 ## Hard rules
 - **API 키를 출력·붙여넣기·로그에 절대 노출하지 않는다.** 키는 `~/.config/nexon/openapi_key` 파일 또는 `NEXON_OPEN_API_KEY` 환경변수에서만 읽힌다. `--key-file <KEY_FILE>`로 경로만 바꿀 수 있다. `cat`으로 키 파일을 읽지 않는다.
-- **출처 표기 필수**: 사용자에게 보여주는 모든 답변 끝에 `meta.attribution` 값("Data based on NEXON Open API")을 붙인다. 카탈로그 행의 `source`가 `labanyu_reference`인 정보를 썼다면 "mabi.labanyu.com"도 함께 적는다.
+- **출처 표기 필수**: 사용자에게 보여주는 모든 답변 끝에 `meta.attribution` 값("Data based on NEXON Open API")을 붙인다. 카탈로그 행에 `source: labanyu_reference`이거나 라바뉴 필드(`stats`, `dungeon_grade`, `equipment_slot_classification`, `limit_break_max_level`)가 있다면 "mabi.labanyu.com"도 함께 적는다(`meta.attribution`에 이미 들어 있음).
 - **horn**: 기본으로 `--redact-names`를 붙인다(캐릭터명 `***`). 사용자가 명시적으로 요청할 때만 생략.
 - 아이템명은 정확히 일치해야 한다(`--name`). 앞의 `@`는 API 원본 이름의 일부다.
 - 옵션 이름은 추측하지 않는다. 카탈로그에서 확인한 이름만 필터에 넣는다.
@@ -68,7 +68,7 @@ mabi-ah trend --name "@롱 소드" --window 7d
 # 랭킹: --by volume|value (기본 volume), --window 기본 24h, --top 기본 10, --category
 mabi-ah rank --by volume --window 24h
 
-# 감시 규칙 (watch add의 -o는 v0.1 문법만: !, |, 옵션군 플래그 불가)
+# 감시 규칙 (watch add의 -o는 v0.1 단순 필터만: !, |, 역슬래시, 옵션군 플래그는 종료 코드 2)
 mabi-ah watch add --name "@롱 소드" --max-price 100000
 mabi-ah watch list
 mabi-ah watch rm 1
@@ -127,7 +127,7 @@ mabi-ah describe       # 명령·플래그·필터 문법 전체 (JSON)
 | `-o`, `--option` | `[!]<type>[:<sub>](>=\|<=\|=\|~)<value>[\|<value>...]` |
 | `--exclude-blueprints` | 이름에 도면/옷본/심볼이 든 아이템 제외 |
 
-- `-o`: `>=`, `<=`는 숫자(`%` 무시), `=`는 숫자면 숫자 비교·아니면 문자열 일치, `~`는 포함. 맨 앞 `!`는 부정, `|`는 OR(값만 쓰면 첫 조건의 type·연산자를 이어받음), 글자 `|`는 `\|`.
+- `-o`: `>=`, `<=`는 숫자(`%` 무시), `=`는 숫자면 숫자 비교·아니면 문자열 일치, `~`는 포함. 맨 앞 `!`는 부정, `|`는 OR(값만 쓰면 첫 조건의 type·연산자를 이어받음), 글자 `|`는 `\|`(역슬래시가 있는 `-o`는 모두 이 규칙으로 해석).
 - 개조·피어싱은 `-o`로: `-o '특별 개조:R>=7'`, `-o '피어싱 레벨>=3'`.
 - 셸 해석을 막기 위해 필터는 작은따옴표로 감싼다.
 - 자세한 설명: 저장소 `docs/options.md`.
@@ -153,7 +153,7 @@ mabi-ah describe       # 명령·플래그·필터 문법 전체 (JSON)
 |---|---|---|
 | 0 | 성공 | 결과 요약 + 출처 |
 | 1 | 내부 오류 | "도구 내부 오류가 났어요" + `error.message_ko` |
-| 2 | 사용법 오류 | 인자/필터 수정해서 재시도(`error.hint`). 모르는 옵션 종류도 여기(메시지에 비슷한 이름) |
+| 2 | 사용법 오류 | 인자/필터 수정해서 재시도(`error.hint`). 모르는 옵션 종류도 여기(`hint`에 비슷한 이름) |
 | 3 | 없음 | 아이템명·인챈트명·세공 옵션명이 정확해야 함; `hint`의 비슷한 이름 제안 |
 | 4 | 키/권한 | "API 키가 없거나 권한이 없어요" — 키 설정 방법만 안내(키 값 요구 금지) |
 | 5 | 호출 한도/예산 초과 | "오늘 호출 예산을 다 썼어요(또는 너무 빠름)"; `--force-budget`은 사용자가 원할 때만 |
@@ -201,7 +201,7 @@ mabi-ah describe       # 명령·플래그·필터 문법 전체 (JSON)
 ## 답변 템플릿 (한국어)
 - 시세: `"<아이템> 현재 최저가 <N>골드 (매물 <M>개). 최근 거래 중앙값 <P>골드.\n※ 기준 시각 <KST>\n출처: Data based on NEXON Open API"`
 - 옵션 매물: `"<조건> <아이템> 매물 <M>개, 최저 <price_ko>골드. (조회 <pages>페이지, 일부만 조회됨이면 명시)\n출처: Data based on NEXON Open API"`
-- 카탈로그: `"<이름>(<slot>, 랭크 <rank>): <effects>. 기준 <observed_at>, 출처 <source>"` — `labanyu_reference`면 끝에 "출처: mabi.labanyu.com".
+- 카탈로그: `"<이름>(<slot>, 랭크 <rank>): <effects>. 기준 <observed_at>, 출처 <source>"` — `labanyu_reference`이거나 라바뉴 필드가 있는 행이면 끝에 "출처: mabi.labanyu.com".
 - 매물 없음: `"지금 '<아이템>' 매물이 없어요. 최근 거래 기준 시세는 <P>골드예요."`
 - 오래된 데이터: `"⚠️ 데이터가 약 <N>분 지연돼 있어요(최근 거래 <KST>)."`
 - 추이: `"<아이템> 최근 <window> 추이: <시작>→<끝>골드 (<±x%>). 거래 <n>건.\n출처: Data based on NEXON Open API"`

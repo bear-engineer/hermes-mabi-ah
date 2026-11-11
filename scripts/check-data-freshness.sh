@@ -24,6 +24,8 @@ for path in sorted(glob.glob(os.path.join(root, "observed", "*.json"))):
     to = date(d.get("observed_to"), path, "observed_to")
     if exp and exp < today:
         errors.append(f"{path}: expired (expires_at {exp} < {today})")
+    if exp and to and (exp - to).days > 30:
+        errors.append(f"{path}: expires_at {exp} is {(exp - to).days} days after observed_to {to} (> 30)")
     if to and (today - to).days > 30:
         errors.append(f"{path}: observed_to {to} is {(today - to).days} days old (> 30)")
 

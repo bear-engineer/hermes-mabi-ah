@@ -40,7 +40,7 @@
     },
     {
       "option_type": "에르그",
-      "sub_type": "등급(S 관측)",
+      "sub_type": "등급 S/A/B",
       "value_format": "현재 레벨 정수",
       "value2_format": "최대 레벨 정수",
       "status": "observed"
@@ -89,10 +89,10 @@
     },
     {
       "option_type": "토템 효과",
-      "sub_type": "미관측",
-      "value_format": "정수(이름 위치 미확인)",
-      "value2_format": "미관측",
-      "status": "unobserved"
+      "sub_type": "<효과 이름>",
+      "value_format": "레벨 정수",
+      "value2_format": "없음",
+      "status": "observed"
     }
   ]
 }

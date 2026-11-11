@@ -117,8 +117,8 @@ The auction API cannot search by option. `mabi-ah` fetches listings and filters 
 | `--exclude-blueprints` | Drop items whose name contains 도면, 옷본 or 심볼 | |
 
 - Enchant rank order is F < E < D < C < B < A < 9 < 8 < … < 1, so `>=E` means E up to 1.
-- In `-o`, `>=` and `<=` compare numbers, `=` compares numbers when the value is numeric and exact text otherwise, `~` tests containment. A leading `!` negates; `|` lists alternative values (any may match). Write a literal `|` as `\|`.
-- Names are checked before any call. An unknown option type exits with 2; an unknown enchant or reforge option name exits with 3, and no API call is made. `error.hint` lists similar names.
+- In `-o`, `>=` and `<=` compare numbers, `=` compares numbers when the value is numeric and exact text otherwise, `~` tests containment. A leading `!` negates; `|` lists alternative values (any may match). Write a literal `|` as `\|` (any `-o` with a backslash is parsed by the same rules). `watch add -o` takes plain filters only; `!` and `|` exit with 2.
+- Names are checked before any call. An unknown option type exits with 2; an unknown enchant or reforge option name exits with 3, and no API call is made. `error.hint` lists similar names (also for `option-prices --family`).
 
 ```sh
 mabi-ah listings --category 장갑 --enchant '접두:날카로운' --enchant-rank '>=E'
@@ -210,7 +210,7 @@ A Runner handles periodic collection and alert delivery. The recommended setup i
 ## Terms and attribution
 
 - Show "Data based on NEXON Open API" wherever the data is displayed; it is in `meta.attribution` of every output.
-- When showing Labanyu reference data (`source: labanyu_reference`), also credit "mabi.labanyu.com".
+- When showing Labanyu reference data (`source: labanyu_reference`, or rows with Labanyu fields such as `stats`, `dungeon_grade`, `limit_break_max_level`), also credit "mabi.labanyu.com". `meta.attribution` already lists it when such rows are present.
 - Refresh stored data within 30 days; the local store keeps trades for 30 days by default.
 - Do not redistribute fetched data or provide the API to third parties, and do not overload the API.
 - Use your own key and do not share it.

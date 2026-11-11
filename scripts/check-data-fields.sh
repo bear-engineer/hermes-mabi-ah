@@ -12,8 +12,10 @@ root = sys.argv[1]
 # key fragments (lowercase compare); Korean fragments compared as-is
 FORBIDDEN = ["price", "volume", "seller", "buyer", "character", "horn", "token",
              "api_key", "apikey", "secret", "password", "email", "nickname",
-             "trade_id", "auction_buy_id", "username", "user_id", "cost",
-             "가격", "시세", "거래량", "판매자", "구매자", "캐릭터", "뿔피리", "닉네임"]
+             "trade_id", "auction_buy_id", "username", "user_id", "user", "cost",
+             "amount", "가격", "최저가", "최고가", "평균가", "판매가", "시세", "거래량",
+             "판매자", "구매자", "캐릭터", "뿔피리", "닉네임"]
+# Keep this a superset of domain::repo_data::FORBIDDEN_KEY_FRAGMENTS.
 VALUE_PATTERNS = {
     "api key": re.compile(r"\b(?:live|test)_[0-9A-Za-z_-]{20,}"),
     "long token": re.compile(r"(?<![0-9A-Za-z_/.-])[0-9A-Za-z_-]{40,}(?![0-9A-Za-z_/.-])"),
