@@ -1,4 +1,5 @@
 #![allow(clippy::unwrap_used)]
+use mabi_ah_domain::option::enchant_rank::EnchantRank;
 use mabi_ah_domain::option::{ItemOption, OptionRegistry, OptionValue as V};
 use proptest::prelude::*;
 
@@ -185,10 +186,33 @@ fn enchants() {
         V::Enchant {
             slot: "접두".into(),
             name: "광포한".into(),
-            rank: 7,
+            rank: EnchantRank::N7,
             effects: vec!["대미지밸런스 1 감소".into(), "최대대미지 12 증가".into()],
         }
     );
+    for (val, rank) in [
+        ("날카로운 (랭크 E)", EnchantRank::E),
+        ("회오리 (랭크 6)", EnchantRank::N6),
+        ("불꽃 (랭크 1)", EnchantRank::N1),
+        ("선율 (랭크 F)", EnchantRank::F),
+    ] {
+        let name = val.split(" (").next().unwrap();
+        assert_eq!(
+            p(&o("인챈트", Some("접두"), Some(val), None, None)),
+            V::Enchant {
+                slot: "접두".into(),
+                name: name.into(),
+                rank,
+                effects: vec![]
+            }
+        );
+    }
+    for bad in ["날카로운 (랭크 Z)", "날카로운 (랭크 )", "날카로운"] {
+        assert!(matches!(
+            p(&o("인챈트", Some("접두"), Some(bad), None, None)),
+            V::Raw(_)
+        ));
+    }
     assert_eq!(
         p(&o(
             "인챈트 종류",
@@ -200,7 +224,7 @@ fn enchants() {
         V::Enchant {
             slot: "접미".into(),
             name: "궤도".into(),
-            rank: 7,
+            rank: EnchantRank::N7,
             effects: vec![]
         }
     );

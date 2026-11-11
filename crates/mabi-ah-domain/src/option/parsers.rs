@@ -2,6 +2,7 @@
 
 use std::collections::HashMap;
 
+use super::enchant_rank::EnchantRank;
 use super::{ItemOption, OptionValue, ParsedOption};
 
 /// Parses one `option_type`. Adding a type = registering a parser (OCP).
@@ -218,7 +219,12 @@ fn enchant(o: &ItemOption) -> Option<OptionValue> {
     let slot = o.sub_type.as_deref()?.trim().to_string();
     let v = o.value.as_deref()?.trim();
     let (name, rest) = v.rsplit_once("(랭크")?;
-    let rank = rest.trim().trim_end_matches(')').trim().parse().ok()?;
+    let rank = rest
+        .trim()
+        .trim_end_matches(')')
+        .trim()
+        .parse::<EnchantRank>()
+        .ok()?;
     let effects = o
         .desc
         .as_deref()

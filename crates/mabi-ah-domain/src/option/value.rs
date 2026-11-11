@@ -1,6 +1,7 @@
 //! Typed view of an [`ItemOption`]; unparseable input stays `Raw`.
 
 use super::ItemOption;
+use super::enchant_rank::EnchantRank;
 
 /// Parsed option payload.
 #[derive(Debug, Clone, PartialEq)]
@@ -29,7 +30,7 @@ pub enum OptionValue {
     Enchant {
         slot: String,
         name: String,
-        rank: u32,
+        rank: EnchantRank,
         effects: Vec<String>,
     },
     Text(String),
