@@ -155,10 +155,11 @@ fn cursor_walk_three_pages() {
 
 #[test]
 fn max_pages_marks_truncated() {
-    let (base, _) = serve(Box::new(|_, _| {
+    let (base, _) = serve(Box::new(|_, n| {
         (
             200,
-            json!({"auction_item": [listing("a", 1)], "next_cursor": "more"}).to_string(),
+            json!({"auction_item": [listing("a", 1)], "next_cursor": format!("more{n}")})
+                .to_string(),
         )
     }));
     let (mut c, _) = client(&base, 3);
