@@ -11,7 +11,12 @@ pub struct ItemName {
 
 impl ItemName {
     pub fn new(raw: impl Into<String>, display: impl Into<String>) -> Self {
-        let _ = (raw.into(), display.into());
-        todo!("item_name")
+        let raw = raw.into();
+        let base = raw.strip_prefix('@').unwrap_or(&raw).to_owned();
+        Self {
+            raw,
+            base,
+            display: display.into(),
+        }
     }
 }
