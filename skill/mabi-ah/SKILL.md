@@ -1,7 +1,7 @@
 ---
 name: mabi-ah
 description: Use when asked about Mabinogi auction prices. Runs mabi-ah.
-version: 0.1.0
+version: 0.1.1
 platforms: [macos]
 metadata:
   hermes:
