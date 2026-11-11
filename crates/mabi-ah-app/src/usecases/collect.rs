@@ -53,11 +53,10 @@ pub fn collect_trades(
     }
     if let (false, Some(newest), Some(oldest)) =
         (report.reached_watermark, newest_stored, oldest_fetched)
+        && oldest > newest
     {
-        if oldest > newest {
-            store.record_gap(newest, oldest)?;
-            report.gap = Some((newest, oldest));
-        }
+        store.record_gap(newest, oldest)?;
+        report.gap = Some((newest, oldest));
     }
     Ok(report)
 }
