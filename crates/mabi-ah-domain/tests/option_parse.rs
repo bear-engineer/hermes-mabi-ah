@@ -190,3 +190,85 @@ proptest! {
         }
     }
 }
+
+mod filter {
+    use super::*;
+    use mabi_ah_domain::option::{FilterOp, FilterParseError, OptionFilter};
+
+    fn f(s: &str) -> OptionFilter {
+        s.parse().unwrap()
+    }
+    fn hit(fs: &str, opts: &[ItemOption]) -> bool {
+        f(fs).matches(opts, &OptionRegistry::default())
+    }
+
+    #[test]
+    fn parses_grammar() {
+        let x = f("토템 효과:지력>=8");
+        assert_eq!((x.option_type.as_str(), x.sub_type.as_deref(), x.op, x.value.as_str()),
+            ("토템 효과", Some("지력"), FilterOp::Ge, "8"));
+        let x = f("세공 옵션~최대 공격력");
+        assert_eq!((x.sub_type, x.op), (None, FilterOp::Contains));
+        assert_eq!(f("에르그>=40").op, FilterOp::Ge);
+        assert_eq!(f("인챈트:접두~광포한").sub_type.as_deref(), Some("접두"));
+        assert_eq!(f("내구력<=3").op, FilterOp::Le);
+        assert_eq!(f("품질=5").op, FilterOp::Eq);
+    }
+
+    #[test]
+    fn rejects_invalid() {
+        assert!(matches!("에르그".parse::<OptionFilter>(), Err(FilterParseError::MissingOperator(_))));
+        assert!(matches!(">=3".parse::<OptionFilter>(), Err(FilterParseError::MissingType(_))));
+        assert!(matches!("에르그>=".parse::<OptionFilter>(), Err(FilterParseError::MissingValue(_))));
+        assert!(matches!("에르그>=abc".parse::<OptionFilter>(), Err(FilterParseError::NotNumeric(_))));
+        assert!("".parse::<OptionFilter>().is_err());
+    }
+
+    #[test]
+    fn numeric_match() {
+        let totem = o("토템 효과", Some("지력"), Some("8"), None, None);
+        assert!(hit("토템 효과:지력>=8", std::slice::from_ref(&totem)));
+        assert!(!hit("토템 효과:지력>=9", std::slice::from_ref(&totem)));
+        assert!(!hit("토템 효과:힘>=1", std::slice::from_ref(&totem)));
+        assert!(hit("토템 효과<=8", std::slice::from_ref(&totem)));
+        assert!(hit("토템 효과=8", &[totem]));
+        let erg = o("에르그", Some("S"), Some("50"), Some("50"), None);
+        assert!(hit("에르그>=40", &[erg]));
+    }
+
+    #[test]
+    fn contains_match() {
+        let seg = o("세공 옵션", Some("1"), Some("최대 공격력(5레벨:3 증가)"), None, None);
+        assert!(hit("세공 옵션~최대 공격력", &[seg]));
+        let ench = o("인챈트", Some("접두"), Some("광포한 (랭크 7)"), None, None);
+        assert!(hit("인챈트:접두~광포한", std::slice::from_ref(&ench)));
+        assert!(!hit("인챈트:접미~광포한", &[ench]));
+    }
+
+    #[test]
+    fn matches_any_option_and_handles_misc() {
+        let a = o("에르그", Some("S"), Some("10"), Some("50"), None);
+        let b = o("에르그", Some("A"), Some("45"), Some("50"), None);
+        assert!(hit("에르그>=40", &[a.clone(), b]));
+        assert!(!hit("에르그>=40", &[a]));
+        assert!(!hit("에르그>=1", &[]));
+        let flag = o("인챈트 불가능", None, Some("true"), None, None);
+        assert!(hit("인챈트 불가능=true", &[flag]));
+        let unk = o("모르는 타입", None, Some("9"), None, None);
+        assert!(hit("모르는 타입>=5", &[unk]));
+        let pct = o("크리티컬", None, Some("16%"), None, None);
+        assert!(hit("크리티컬>=15", &[pct]));
+        let bad = o("공격", None, Some("abc"), None, None);
+        assert!(!hit("공격>=1", &[bad]));
+    }
+
+    proptest! {
+        #[test]
+        fn filter_strings_never_panic(s in ".*", v in proptest::option::of(".*")) {
+            if let Ok(x) = s.parse::<OptionFilter>() {
+                let i = ItemOption { option_type: x.option_type.clone(), sub_type: None, value: v, value2: None, desc: None };
+                let _ = x.matches(&[i], &OptionRegistry::default());
+            }
+        }
+    }
+}

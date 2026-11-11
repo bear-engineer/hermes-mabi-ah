@@ -5,3 +5,5 @@ mod value;
 pub use item_option::ItemOption;
 pub use parsers::{OptionParser, OptionRegistry};
 pub use value::{OptionValue, ParsedOption};
+mod filter;
+pub use filter::{FilterOp, FilterParseError, OptionFilter};
