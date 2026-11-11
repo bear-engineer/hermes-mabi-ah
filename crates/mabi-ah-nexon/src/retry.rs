@@ -12,7 +12,11 @@ pub struct RetryPolicy {
 
 impl Default for RetryPolicy {
     fn default() -> Self {
-        todo!()
+        Self {
+            max_attempts: 4,
+            base_ms: 500,
+            cap_ms: 8_000,
+        }
     }
 }
 

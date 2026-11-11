@@ -40,26 +40,26 @@ pub enum AppError {
 /// Process exit codes; the one definition (contract from the plan).
 pub mod exit_code {
     pub const OK: u8 = 0;
-    pub const INTERNAL: u8 = 0;
-    pub const USAGE: u8 = 0;
-    pub const NOT_FOUND: u8 = 0;
-    pub const AUTH: u8 = 0;
-    pub const RATE_OR_BUDGET: u8 = 0;
-    pub const UPSTREAM: u8 = 0;
-    pub const STORE: u8 = 0;
+    pub const INTERNAL: u8 = 1;
+    pub const USAGE: u8 = 2;
+    pub const NOT_FOUND: u8 = 3;
+    pub const AUTH: u8 = 4;
+    pub const RATE_OR_BUDGET: u8 = 5;
+    pub const UPSTREAM: u8 = 6;
+    pub const STORE: u8 = 7;
 }
 
 impl AppError {
     /// Process exit code (0 is success and never returned here).
     pub fn exit_code(&self) -> u8 {
         match self {
-            Self::Internal(_) => 1,
-            Self::Usage(_) => 2,
-            Self::NotFound { .. } => 3,
-            Self::Auth(_) => 4,
-            Self::RateLimited { .. } | Self::BudgetExceeded { .. } => 5,
-            Self::Upstream { .. } => 6,
-            Self::Store(_) => 7,
+            Self::Internal(_) => exit_code::INTERNAL,
+            Self::Usage(_) => exit_code::USAGE,
+            Self::NotFound { .. } => exit_code::NOT_FOUND,
+            Self::Auth(_) => exit_code::AUTH,
+            Self::RateLimited { .. } | Self::BudgetExceeded { .. } => exit_code::RATE_OR_BUDGET,
+            Self::Upstream { .. } => exit_code::UPSTREAM,
+            Self::Store(_) => exit_code::STORE,
         }
     }
 

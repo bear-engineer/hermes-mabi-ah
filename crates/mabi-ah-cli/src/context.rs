@@ -9,6 +9,7 @@ use mabi_ah_domain::option::OptionRegistry;
 use mabi_ah_domain::staleness::{DEFAULT_STALE_THRESHOLD, assess};
 use mabi_ah_nexon::client::{NexonClient, SystemClock as MonoClock, ThreadSleeper};
 use mabi_ah_nexon::key::ApiKey;
+use mabi_ah_nexon::limits::CLI_BUCKET_CAPACITY;
 use mabi_ah_nexon::rate_limit::TokenBucket;
 use mabi_ah_nexon::retry::RetryPolicy;
 use mabi_ah_store::{SqliteBudget, SqliteStore};
@@ -78,15 +79,11 @@ impl Context {
         let meter: Rc<dyn CallMeter> = self.meter.clone();
         let bucket = TokenBucket::new(
             self.cfg.tier.per_second(),
-            1,
+            CLI_BUCKET_CAPACITY,
             MonoClock::default(),
             ThreadSleeper,
         );
-        let retry = RetryPolicy {
-            max_attempts: 4,
-            base_ms: 500,
-            cap_ms: 8_000,
-        };
+        let retry = RetryPolicy::default();
         let base = self
             .cfg
             .base_url

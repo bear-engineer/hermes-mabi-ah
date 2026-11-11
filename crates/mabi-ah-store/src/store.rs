@@ -3,8 +3,10 @@
 //! Timestamps are stored as INTEGER unix milliseconds (UTC); budget days as
 //! `YYYY-MM-DD` UTC text. Schema versions live in `PRAGMA user_version`.
 use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::process::Command;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use mabi_ah_app::error::AppError;
 use mabi_ah_app::ports::{BudgetLedger, Outbox, TradeStore, WatchStore};
@@ -175,21 +177,71 @@ impl SqliteBudget {
     }
 }
 
+/// A lock older than this is stale even if its holder pid looks alive
+/// (pid reuse, hung process).
+const LOCK_MAX_AGE: Duration = Duration::from_secs(2 * 3600);
+
+fn unix_now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
+}
+
+/// `kill -0` succeeds for a live pid; EPERM means it exists but is not ours.
+/// libc is not a normal dependency of this crate, so shell out.
+fn pid_alive(pid: u32) -> bool {
+    Command::new("kill")
+        .arg("-0")
+        .arg(pid.to_string())
+        .output()
+        .map(|o| {
+            o.status.success()
+                || String::from_utf8_lossy(&o.stderr)
+                    .to_lowercase()
+                    .contains("not permitted")
+        })
+        .unwrap_or(true) // cannot tell: treat as alive, never steal
+}
+
+/// Stale = holder pid dead, or lock older than `LOCK_MAX_AGE`. Content that
+/// does not parse (legacy/partial file) falls back to the file mtime.
+fn lock_is_stale(path: &Path) -> bool {
+    let text = fs::read_to_string(path).unwrap_or_default();
+    let mut it = text.split_whitespace();
+    let pid = it.next().and_then(|p| p.parse::<u32>().ok());
+    let created = it.next().and_then(|t| t.parse::<u64>().ok());
+    let (Some(pid), Some(created)) = (pid, created) else {
+        let age = fs::metadata(path)
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|m| m.elapsed().ok());
+        return age.is_some_and(|a| a > LOCK_MAX_AGE);
+    };
+    unix_now().saturating_sub(created) > LOCK_MAX_AGE.as_secs() || !pid_alive(pid)
+}
+
+fn create_lock_file(path: &Path) -> std::io::Result<()> {
+    let mut f = OpenOptions::new().write(true).create_new(true).open(path)?;
+    writeln!(f, "{} {}", std::process::id(), unix_now())
+}
+
 impl CollectLock {
     pub fn acquire(db_path: &Path) -> Result<Self, AppError> {
         let mut name = db_path.as_os_str().to_owned();
         name.push(".collect.lock");
         let path = PathBuf::from(name);
-        OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&path)
-            .map_err(|e| {
-                AppError::Store(format!(
-                    "another collect holds the lock ({e}); if none is running remove {}",
-                    path.display()
-                ))
-            })?;
+        let mut created = create_lock_file(&path);
+        if created.is_err() && lock_is_stale(&path) {
+            eprintln!("mabi-ah: taking over stale collect lock {}", path.display());
+            let _ = fs::remove_file(&path);
+            created = create_lock_file(&path);
+        }
+        created.map_err(|e| {
+            AppError::Store(format!(
+                "another collect holds the lock ({e}); if none is running remove {}",
+                path.display()
+            ))
+        })?;
         let lock = Self { path };
         let probe = connect(db_path).and_then(|c| {
             c.busy_timeout(Duration::ZERO).map_err(store_err)?;

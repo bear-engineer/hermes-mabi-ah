@@ -68,11 +68,7 @@ impl NexonClient {
             DEFAULT_BASE_URL,
             key,
             bucket,
-            RetryPolicy {
-                max_attempts: 4,
-                base_ms: 500,
-                cap_ms: 8_000,
-            },
+            RetryPolicy::default(),
             meter,
             Box::new(ThreadSleeper),
         )
