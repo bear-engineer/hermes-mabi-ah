@@ -1,0 +1,1 @@
+//! Port traits (node P).

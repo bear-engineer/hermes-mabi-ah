@@ -1,0 +1,36 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/bear-engineer/hermes-mabi-ah"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+unwrap_used = "warn"
+dbg_macro = "warn"
+
+[workspace.dependencies]
+mabi-ah-domain = { path = "crates/mabi-ah-domain" }
+mabi-ah-app = { path = "crates/mabi-ah-app" }
+mabi-ah-nexon = { path = "crates/mabi-ah-nexon" }
+mabi-ah-store = { path = "crates/mabi-ah-store" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+time = { version = "0.3", features = ["serde", "parsing", "formatting", "macros"] }
+ureq = { version = "3", features = ["json"] }
+rusqlite = { version = "0.41", features = ["bundled"] }
+clap = { version = "4", features = ["derive"] }
+fastrand = "2"
+proptest = "1"
+insta = { version = "1", features = ["json"] }
+tiny_http = "0.12"
+tempfile = "3"

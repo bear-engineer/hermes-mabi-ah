@@ -1,0 +1,24 @@
+title = "hermes-mabi-ah secret scan"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "nexon-open-api-key"
+description = "NEXON Open API key (test_/live_ prefixed hex)"
+regex = '''\b(?:test|live)_[0-9a-f]{64,}\b'''
+tags = ["key", "nexon"]
+
+[[rules]]
+id = "local-absolute-path"
+description = "Absolute local user path (leaks account names)"
+regex = '''/(?:Users|home)/[A-Za-z0-9._-]+/'''
+tags = ["privacy"]
+
+[[rules]]
+id = "email-address"
+description = "Email address other than GitHub noreply or example domains"
+regex = '''[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'''
+tags = ["privacy"]
+[[rules.allowlists]]
+regexes = ['''@users\.noreply\.github\.com''', '''@example\.(?:com|org)''']

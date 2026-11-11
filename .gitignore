@@ -1,0 +1,11 @@
+/target
+*.db
+*.db-*
+*.sqlite*
+/live/
+.env
+.env.*
+openapi_key
+*.key
+*.pem
+.DS_Store
