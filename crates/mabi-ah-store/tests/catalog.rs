@@ -67,7 +67,7 @@ fn enchant_observations_accumulate_and_keep_effects() {
     let (_d, mut s) = open();
     let scroll = enchant("날카로운", EnchantRank::E, &[]);
     let worn = enchant("날카로운", EnchantRank::E, &["크리티컬 2 증가"]);
-    s.record_catalog(&[worn.clone()], datetime!(2026-11-01 00:00 UTC))
+    s.record_catalog(std::slice::from_ref(&worn), datetime!(2026-11-01 00:00 UTC))
         .unwrap();
     s.record_catalog(&[scroll], datetime!(2026-11-05 00:00 UTC))
         .unwrap();

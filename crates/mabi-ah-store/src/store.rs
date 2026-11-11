@@ -20,7 +20,8 @@ use serde_json::{Value, json};
 use time::{Date, OffsetDateTime};
 
 /// Each entry is one migration; `user_version` = number applied.
-const MIGRATIONS: &[&str] = &["
+const MIGRATIONS: &[&str] = &[
+    "
 CREATE TABLE trades (
     trade_id TEXT PRIMARY KEY,
     base_name TEXT NOT NULL,
@@ -53,7 +54,51 @@ CREATE TABLE alerts_outbox (
 );
 CREATE TABLE budget_ledger (day TEXT PRIMARY KEY, calls INTEGER NOT NULL);
 CREATE TABLE categories_discovered (name TEXT PRIMARY KEY);
-"];
+",
+    "
+CREATE TABLE catalog_enchant (
+    slot TEXT NOT NULL,
+    name TEXT NOT NULL,
+    rank TEXT NOT NULL,
+    effects_json TEXT NOT NULL DEFAULT '[]',
+    observed_count INTEGER NOT NULL,
+    first_seen INTEGER NOT NULL,
+    last_seen INTEGER NOT NULL,
+    source TEXT NOT NULL,
+    PRIMARY KEY (slot, name, rank)
+);
+CREATE TABLE catalog_reforge (
+    option_name TEXT NOT NULL,
+    slot TEXT NOT NULL,
+    category TEXT NOT NULL,
+    min_level INTEGER NOT NULL,
+    max_level INTEGER NOT NULL,
+    observed_count INTEGER NOT NULL,
+    first_seen INTEGER NOT NULL,
+    last_seen INTEGER NOT NULL,
+    source TEXT NOT NULL,
+    PRIMARY KEY (option_name, slot, category)
+);
+CREATE TABLE catalog_option_value (
+    kind TEXT NOT NULL,
+    option_type TEXT NOT NULL,
+    sub_type TEXT NOT NULL DEFAULT '',
+    value TEXT NOT NULL,
+    category TEXT NOT NULL,
+    min_level INTEGER,
+    max_level INTEGER,
+    extra_json TEXT NOT NULL DEFAULT '',
+    observed_count INTEGER NOT NULL,
+    first_seen INTEGER NOT NULL,
+    last_seen INTEGER NOT NULL,
+    source TEXT NOT NULL,
+    PRIMARY KEY (kind, option_type, sub_type, value, category)
+);
+CREATE INDEX catalog_enchant_last_seen ON catalog_enchant(last_seen);
+CREATE INDEX catalog_reforge_last_seen ON catalog_reforge(last_seen);
+CREATE INDEX catalog_option_value_last_seen ON catalog_option_value(last_seen);
+",
+];
 
 pub(crate) fn store_err(e: impl std::fmt::Display) -> AppError {
     AppError::Store(e.to_string())

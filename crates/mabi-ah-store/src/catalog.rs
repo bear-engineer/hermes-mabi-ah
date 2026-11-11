@@ -189,7 +189,76 @@ impl SqliteStore {
         observations: &[CatalogObservation],
         seen_at: OffsetDateTime,
     ) -> Result<usize, AppError> {
-        todo!()
+        let t = ms(seen_at);
+        let stamp = Stamp {
+            count: 1,
+            first: t,
+            last: t,
+            source: CatalogSource::LocalObserved,
+            additive: true,
+        };
+        let tx = self.conn.transaction().map_err(store_err)?;
+        for o in observations {
+            match o {
+                CatalogObservation::Enchant {
+                    slot,
+                    name,
+                    rank,
+                    effects,
+                } => upsert_enchant(&tx, slot, name, &rank.to_string(), effects, &stamp)?,
+                CatalogObservation::Reforge {
+                    option,
+                    level,
+                    slot,
+                    category,
+                } => {
+                    let l = i64::from(*level);
+                    upsert_reforge(&tx, option, slot, category, l, l, &stamp)?;
+                }
+                CatalogObservation::OptionValue {
+                    option_type,
+                    sub_type,
+                    value,
+                    level,
+                    category,
+                } => {
+                    let l = level.map(i64::from);
+                    upsert_value(
+                        &tx,
+                        &ValueRow {
+                            kind: "value",
+                            option_type,
+                            sub_type: sub_type.as_deref().unwrap_or(""),
+                            value,
+                            category,
+                            min_level: l,
+                            max_level: l,
+                            extra_json: "",
+                        },
+                        &stamp,
+                    )?;
+                }
+                CatalogObservation::Unparsed { category, raw } => {
+                    let extra = serde_json::to_string(raw).map_err(store_err)?;
+                    upsert_value(
+                        &tx,
+                        &ValueRow {
+                            kind: "raw",
+                            option_type: &raw.option_type,
+                            sub_type: raw.sub_type.as_deref().unwrap_or(""),
+                            value: raw.value.as_deref().unwrap_or(""),
+                            category,
+                            min_level: None,
+                            max_level: None,
+                            extra_json: &extra,
+                        },
+                        &stamp,
+                    )?;
+                }
+            }
+        }
+        tx.commit().map_err(store_err)?;
+        Ok(observations.len())
     }
 
     /// Import repo-format enchant entries (idempotent: counts take the max).
@@ -198,7 +267,20 @@ impl SqliteStore {
         entries: &[EnchantEntry],
         source: CatalogSource,
     ) -> Result<usize, AppError> {
-        todo!()
+        let tx = self.conn.transaction().map_err(store_err)?;
+        for e in entries {
+            e.validate().map_err(|x| AppError::Usage(x.to_string()))?;
+            let s = Stamp {
+                count: to_i64(e.observed_count),
+                first: day_ms(&e.first_seen)?,
+                last: day_ms(&e.last_seen)?,
+                source,
+                additive: false,
+            };
+            upsert_enchant(&tx, &e.slot, &e.name, &e.rank, &e.effects, &s)?;
+        }
+        tx.commit().map_err(store_err)?;
+        Ok(entries.len())
     }
 
     /// Import repo-format reforge entries.
@@ -207,7 +289,28 @@ impl SqliteStore {
         entries: &[ReforgeEntry],
         source: CatalogSource,
     ) -> Result<usize, AppError> {
-        todo!()
+        let tx = self.conn.transaction().map_err(store_err)?;
+        for e in entries {
+            e.validate().map_err(|x| AppError::Usage(x.to_string()))?;
+            let s = Stamp {
+                count: to_i64(e.observed_count),
+                first: day_ms(&e.first_seen)?,
+                last: day_ms(&e.last_seen)?,
+                source,
+                additive: false,
+            };
+            upsert_reforge(
+                &tx,
+                &e.option,
+                &e.slot,
+                &e.category,
+                i64::from(e.min_level),
+                i64::from(e.max_level),
+                &s,
+            )?;
+        }
+        tx.commit().map_err(store_err)?;
+        Ok(entries.len())
     }
 
     /// Import repo-format option value entries.
@@ -216,7 +319,33 @@ impl SqliteStore {
         entries: &[OptionValueEntry],
         source: CatalogSource,
     ) -> Result<usize, AppError> {
-        todo!()
+        let tx = self.conn.transaction().map_err(store_err)?;
+        for e in entries {
+            e.validate().map_err(|x| AppError::Usage(x.to_string()))?;
+            let s = Stamp {
+                count: to_i64(e.observed_count),
+                first: day_ms(&e.first_seen)?,
+                last: day_ms(&e.last_seen)?,
+                source,
+                additive: false,
+            };
+            upsert_value(
+                &tx,
+                &ValueRow {
+                    kind: "value",
+                    option_type: &e.option_type,
+                    sub_type: e.sub_type.as_deref().unwrap_or(""),
+                    value: &e.value,
+                    category: &e.category,
+                    min_level: e.min_level.map(i64::from),
+                    max_level: e.max_level.map(i64::from),
+                    extra_json: "",
+                },
+                &s,
+            )?;
+        }
+        tx.commit().map_err(store_err)?;
+        Ok(entries.len())
     }
 
     /// `catalog import`: read a repo-format observed file (`observed_enchant`,
@@ -228,7 +357,44 @@ impl SqliteStore {
         json: &str,
         today: Date,
     ) -> Result<ImportReport, AppError> {
-        todo!()
+        let kind = serde_json::from_str::<serde_json::Value>(json)
+            .map_err(|e| AppError::Usage(format!("import file: {e}")))?
+            .get("kind")
+            .and_then(|k| k.as_str().map(str::to_owned))
+            .ok_or_else(|| AppError::Usage("import file: missing kind".into()))?;
+        let usage = |e: mabi_ah_domain::repo_data::RepoDataError| AppError::Usage(e.to_string());
+        let expired = || AppError::Usage("import file is expired (expires_at passed)".into());
+        let mut report = ImportReport::default();
+        match kind.as_str() {
+            k if k == EnchantEntry::KIND => {
+                let f = load_observed::<EnchantEntry>(json).map_err(usage)?;
+                if f.is_expired(today) {
+                    return Err(expired());
+                }
+                report.enchants = self.import_enchants(&f.entries, CatalogSource::UserImport)?;
+            }
+            k if k == ReforgeEntry::KIND => {
+                let f = load_observed::<ReforgeEntry>(json).map_err(usage)?;
+                if f.is_expired(today) {
+                    return Err(expired());
+                }
+                report.reforges = self.import_reforges(&f.entries, CatalogSource::UserImport)?;
+            }
+            k if k == OptionValueEntry::KIND => {
+                let f = load_observed::<OptionValueEntry>(json).map_err(usage)?;
+                if f.is_expired(today) {
+                    return Err(expired());
+                }
+                report.option_values =
+                    self.import_option_values(&f.entries, CatalogSource::UserImport)?;
+            }
+            other => {
+                return Err(AppError::Usage(format!(
+                    "import file: unknown kind {other:?}"
+                )));
+            }
+        }
+        Ok(report)
     }
 
     /// Enchants by name substring and/or slot, sorted by name, slot, then rank (weakest first).
@@ -236,7 +402,57 @@ impl SqliteStore {
         &self,
         q: &CatalogQuery,
     ) -> Result<Vec<Sourced<EnchantEntry>>, AppError> {
-        todo!()
+        let mut st = self
+            .conn
+            .prepare(
+                "SELECT slot,name,rank,effects_json,observed_count,first_seen,last_seen,source \
+                 FROM catalog_enchant \
+                 WHERE (?1 IS NULL OR instr(name, ?1) > 0) AND (?2 IS NULL OR slot = ?2) \
+                 ORDER BY name, slot",
+            )
+            .map_err(store_err)?;
+        let rows = st
+            .query_map(params![q.text, q.slot], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, String>(3)?,
+                    r.get::<_, i64>(4)?,
+                    r.get::<_, i64>(5)?,
+                    r.get::<_, i64>(6)?,
+                    r.get::<_, String>(7)?,
+                ))
+            })
+            .map_err(store_err)?;
+        let mut out = Vec::new();
+        for row in rows {
+            let (slot, name, rank, effects, count, first, last, source) = row.map_err(store_err)?;
+            out.push(Sourced {
+                source: source_of(&source)?,
+                entry: EnchantEntry {
+                    slot,
+                    name,
+                    rank,
+                    effects: serde_json::from_str(&effects).map_err(store_err)?,
+                    observed_count: to_u64(count),
+                    first_seen: day_text(first)?,
+                    last_seen: day_text(last)?,
+                },
+            });
+        }
+        let ord = |e: &EnchantEntry| e.rank.parse::<EnchantRank>().map(EnchantRank::ordinal).ok();
+        out.sort_by(|a, b| {
+            (&a.entry.name, &a.entry.slot, ord(&a.entry)).cmp(&(
+                &b.entry.name,
+                &b.entry.slot,
+                ord(&b.entry),
+            ))
+        });
+        if let Some(n) = q.limit {
+            out.truncate(n);
+        }
+        Ok(out)
     }
 
     /// Reforge options by option-name substring and/or exact equipment category.
@@ -244,7 +460,51 @@ impl SqliteStore {
         &self,
         q: &CatalogQuery,
     ) -> Result<Vec<Sourced<ReforgeEntry>>, AppError> {
-        todo!()
+        let mut st = self
+            .conn
+            .prepare(
+                "SELECT option_name,slot,category,min_level,max_level,observed_count,first_seen,last_seen,source \
+                 FROM catalog_reforge \
+                 WHERE (?1 IS NULL OR instr(option_name, ?1) > 0) \
+                   AND (?2 IS NULL OR category = ?2) AND (?3 IS NULL OR slot = ?3) \
+                 ORDER BY option_name, category, slot LIMIT ?4",
+            )
+            .map_err(store_err)?;
+        let limit = q.limit.map_or(-1, to_i64_usize);
+        let rows = st
+            .query_map(params![q.text, q.category, q.slot, limit], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, i64>(3)?,
+                    r.get::<_, i64>(4)?,
+                    r.get::<_, i64>(5)?,
+                    r.get::<_, i64>(6)?,
+                    r.get::<_, i64>(7)?,
+                    r.get::<_, String>(8)?,
+                ))
+            })
+            .map_err(store_err)?;
+        let mut out = Vec::new();
+        for row in rows {
+            let (option, slot, category, min, max, count, first, last, source) =
+                row.map_err(store_err)?;
+            out.push(Sourced {
+                source: source_of(&source)?,
+                entry: ReforgeEntry {
+                    option,
+                    slot,
+                    category,
+                    min_level: opt_u32(Some(min)).unwrap_or(0),
+                    max_level: opt_u32(Some(max)).unwrap_or(0),
+                    observed_count: to_u64(count),
+                    first_seen: day_text(first)?,
+                    last_seen: day_text(last)?,
+                },
+            });
+        }
+        Ok(out)
     }
 
     /// Option values (not raw rows) of one `option_type` (or all when `None`), filtered by
@@ -254,23 +514,117 @@ impl SqliteStore {
         option_type: Option<&str>,
         q: &CatalogQuery,
     ) -> Result<Vec<Sourced<OptionValueEntry>>, AppError> {
-        todo!()
+        let mut st = self
+            .conn
+            .prepare(
+                "SELECT option_type,sub_type,value,category,min_level,max_level,observed_count,first_seen,last_seen,source \
+                 FROM catalog_option_value \
+                 WHERE kind = 'value' AND (?1 IS NULL OR option_type = ?1) \
+                   AND (?2 IS NULL OR instr(value, ?2) > 0) AND (?3 IS NULL OR category = ?3) \
+                 ORDER BY option_type, value, sub_type, category LIMIT ?4",
+            )
+            .map_err(store_err)?;
+        let limit = q.limit.map_or(-1, to_i64_usize);
+        let rows = st
+            .query_map(params![option_type, q.text, q.category, limit], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, String>(3)?,
+                    r.get::<_, Option<i64>>(4)?,
+                    r.get::<_, Option<i64>>(5)?,
+                    r.get::<_, i64>(6)?,
+                    r.get::<_, i64>(7)?,
+                    r.get::<_, i64>(8)?,
+                    r.get::<_, String>(9)?,
+                ))
+            })
+            .map_err(store_err)?;
+        let mut out = Vec::new();
+        for row in rows {
+            let (ty, sub, value, category, min, max, count, first, last, source) =
+                row.map_err(store_err)?;
+            out.push(Sourced {
+                source: source_of(&source)?,
+                entry: OptionValueEntry {
+                    option_type: ty,
+                    sub_type: Some(sub).filter(|s| !s.is_empty()),
+                    value,
+                    category,
+                    min_level: opt_u32(min),
+                    max_level: opt_u32(max),
+                    observed_count: to_u64(count),
+                    first_seen: day_text(first)?,
+                    last_seen: day_text(last)?,
+                },
+            });
+        }
+        Ok(out)
     }
 
     /// Distinct option types with value rows and their row counts, sorted by type.
     pub fn catalog_option_types(&self) -> Result<Vec<(String, u64)>, AppError> {
-        todo!()
+        let mut st = self
+            .conn
+            .prepare(
+                "SELECT option_type, COUNT(*) FROM catalog_option_value \
+                 WHERE kind = 'value' GROUP BY option_type ORDER BY option_type",
+            )
+            .map_err(store_err)?;
+        st.query_map([], |r| {
+            Ok((r.get::<_, String>(0)?, to_u64(r.get::<_, i64>(1)?)))
+        })
+        .map_err(store_err)?
+        .collect::<Result<_, _>>()
+        .map_err(store_err)
     }
 
     /// Raw options kept because they could not be interpreted, most recent first.
     pub fn catalog_unparsed(&self, limit: Option<usize>) -> Result<Vec<UnparsedRow>, AppError> {
-        todo!()
+        let mut st = self
+            .conn
+            .prepare(
+                "SELECT category, extra_json, observed_count, last_seen FROM catalog_option_value \
+                 WHERE kind = 'raw' ORDER BY last_seen DESC, option_type, value LIMIT ?1",
+            )
+            .map_err(store_err)?;
+        let rows = st
+            .query_map(params![limit.map_or(-1, to_i64_usize)], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, i64>(2)?,
+                    r.get::<_, i64>(3)?,
+                ))
+            })
+            .map_err(store_err)?;
+        let mut out = Vec::new();
+        for row in rows {
+            let (category, raw, count, last) = row.map_err(store_err)?;
+            out.push(UnparsedRow {
+                category,
+                raw: serde_json::from_str(&raw).map_err(store_err)?,
+                observed_count: to_u64(count),
+                last_seen: day_text(last)?,
+            });
+        }
+        Ok(out)
     }
 
     /// Delete rows whose `last_seen` is older than [`PURGE_DAYS`] before `now` (all sources).
     /// Returns the number of rows removed.
     pub fn purge_catalog(&mut self, now: OffsetDateTime) -> Result<usize, AppError> {
-        todo!()
+        let cutoff = ms(now - Duration::days(PURGE_DAYS));
+        let tx = self.conn.transaction().map_err(store_err)?;
+        let mut n = 0;
+        for t in ["catalog_enchant", "catalog_reforge", "catalog_option_value"] {
+            n += tx
+                .execute(&format!("DELETE FROM {t} WHERE last_seen < ?1"), [cutoff])
+                .map_err(store_err)?;
+        }
+        tx.commit().map_err(store_err)?;
+        Ok(n)
     }
 }
 
