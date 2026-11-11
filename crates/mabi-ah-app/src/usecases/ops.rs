@@ -85,14 +85,45 @@ pub struct WatchCheck {
     pub errors: Vec<AppError>,
 }
 
-/// Evaluates every rule, collecting per-rule errors, then drains the outbox.
+/// Evaluates every rule (a failing rule never stops the others), then drains
+/// the outbox so alerts queued by earlier runs are delivered too. While any
+/// rule failed the outbox is left untouched: the caller reports a failure and
+/// the pending alerts are delivered by the next healthy run.
 pub fn check_watch(
-    _gw: &mut dyn AuctionGateway,
-    _store: &dyn WatchStore,
-    _outbox: &mut dyn Outbox,
-    _opts: &OptionRegistry,
+    gw: &mut dyn AuctionGateway,
+    store: &dyn WatchStore,
+    outbox: &mut dyn Outbox,
+    opts: &OptionRegistry,
 ) -> Result<WatchCheck, AppError> {
-    todo!("evaluate all rules and drain the outbox")
+    let mut errors = Vec::new();
+    for rule in store.list()? {
+        let query = ListingQuery {
+            name: Some(rule.base_name.clone()),
+            category: rule.category.clone(),
+            cursor: None,
+        };
+        let page = match gw.listings(&query) {
+            Ok(p) => p,
+            Err(e) => {
+                errors.push(e);
+                continue;
+            }
+        };
+        match evaluate(&rule, &page.items, opts) {
+            Ok(alerts) => {
+                for alert in alerts {
+                    outbox.enqueue_if_new(&alert)?;
+                }
+            }
+            Err(e) => errors.push(AppError::Usage(e.to_string())),
+        }
+    }
+    let alerts = if errors.is_empty() {
+        outbox.drain()?
+    } else {
+        Vec::new()
+    };
+    Ok(WatchCheck { alerts, errors })
 }
 
 pub fn query_npc_shop(

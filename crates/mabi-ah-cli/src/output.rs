@@ -1,5 +1,6 @@
 //! Output envelope (`mabi_ah/v1`) and the table renderer.
 use mabi_ah_app::error::{AppError, UpstreamKind};
+use mabi_ah_nexon::error_code::NexonCode;
 use serde::Serialize;
 use serde_json::Value;
 use time::OffsetDateTime;
@@ -100,7 +101,7 @@ pub fn error_body(e: &AppError) -> ErrorBody {
         AppError::RateLimited { .. } => (
             "API 호출 속도 제한에 걸렸습니다".to_owned(),
             Some("잠시 후 다시 시도하세요".to_owned()),
-            Some("OPENAPI00007".to_owned()),
+            Some(NexonCode::OpenApi00007.name().to_owned()),
         ),
         AppError::BudgetExceeded { used, limit } => (
             format!("오늘의 API 호출 예산을 모두 사용했습니다 ({used}/{limit})"),
@@ -269,6 +270,15 @@ mod tests {
         assert_eq!(lines[0], "a   b");
         assert_eq!(lines[1], "롱  1");
         assert_eq!(lines[2], "x   22");
+    }
+
+    #[test]
+    fn rate_limit_code_comes_from_the_nexon_table() {
+        let b = error_body(&AppError::RateLimited { retry_after: None });
+        assert_eq!(
+            b.nexon_code.as_deref(),
+            Some(NexonCode::OpenApi00007.name())
+        );
     }
 
     #[test]

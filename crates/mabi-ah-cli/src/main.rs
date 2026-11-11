@@ -15,6 +15,7 @@ use mabi_ah_app::error::AppError;
 use mabi_ah_nexon::limits::Tier;
 
 use commands::Command;
+use commands::watch::{Emit, WatchCommand};
 use config::{Config, Format};
 use context::{Context, build_meta};
 
@@ -93,6 +94,7 @@ fn main() -> ExitCode {
     let cfg = cli.config();
     let format = cfg.format;
     let name = cli.command.name();
+    let raw = is_raw(&cli.command);
     let (envelope, code) = match Context::open(cfg) {
         Err(e) => (output::failure(name, &e, build_meta(None, 0)), exit::of(&e)),
         Ok(mut ctx) => {
@@ -105,8 +107,25 @@ fn main() -> ExitCode {
     };
     if let Some(err) = &envelope.error {
         eprintln!("mabi-ah: {} [{}]", err.message_ko, err.code);
+        if raw {
+            // Raw paths (cron) must keep stdout empty on failure.
+            return code;
+        }
     }
     emit(&output::render(format, &envelope), code)
+}
+
+/// Commands whose success output bypasses the envelope (`collect --quiet`,
+/// `watch check --emit text`); their failures go to stderr only.
+fn is_raw(command: &Command) -> bool {
+    match command {
+        Command::Collect(a) => a.quiet,
+        Command::Watch(w) => matches!(
+            &w.command,
+            WatchCommand::Check(c) if matches!(c.emit, Emit::Text)
+        ),
+        _ => false,
+    }
 }
 
 /// clap rejected the command line: help/version go to stdout, anything else is
