@@ -1,0 +1,27 @@
+name: release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release --locked -p mabi-ah-cli
+      - name: Package
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          NAME="mabi-ah-${VERSION}-aarch64-apple-darwin"
+          mkdir -p "dist/${NAME}/skill"
+          cp target/release/mabi-ah "dist/${NAME}/mabi-ah"
+          cp -R skill/mabi-ah "dist/${NAME}/skill/mabi-ah"
+          tar -C dist -czf "dist/${NAME}.tar.gz" "${NAME}"
+          (cd dist && shasum -a 256 "${NAME}.tar.gz" > "${NAME}.tar.gz.sha256")
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/*.tar.gz.sha256
