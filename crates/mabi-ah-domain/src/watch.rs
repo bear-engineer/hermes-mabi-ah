@@ -30,6 +30,48 @@ pub fn evaluate(
     listings: &[Listing],
     reg: &OptionRegistry,
 ) -> Result<Vec<Alert>, FilterParseError> {
-    let _ = (rule, listings, reg);
-    todo!()
+    let filters = rule
+        .filters
+        .iter()
+        .map(|f| f.parse::<OptionFilter>())
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(listings
+        .iter()
+        .filter(|l| {
+            l.name.base == rule.base_name
+                && rule.max_unit_price.is_none_or(|max| l.unit_price <= max)
+                && rule.category.as_deref().is_none_or(|c| l.category == c)
+                && filters.iter().all(|f| f.matches(&l.options, reg))
+        })
+        .map(|l| Alert {
+            rule_id: rule.id.clone(),
+            dedupe_key: dedupe_key(&rule.id, l),
+            listing: l.clone(),
+        })
+        .collect())
+}
+
+fn dedupe_key(rule_id: &str, l: &Listing) -> String {
+    let opts = l
+        .options
+        .iter()
+        .map(|o| {
+            let part = |v: &Option<String>| v.clone().unwrap_or_default();
+            format!(
+                "{}/{}/{}/{}/{}",
+                o.option_type,
+                part(&o.sub_type),
+                part(&o.value),
+                part(&o.value2),
+                part(&o.desc)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(";");
+    format!(
+        "{rule_id}|{}|{}|{}|{opts}",
+        l.name.display,
+        l.unit_price,
+        l.expires_at.unix_timestamp()
+    )
 }
