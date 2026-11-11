@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Template for the launchd alternative (Runner A). Not installed by this repo.
+  Replace every __PLACEHOLDER__ before use:
+    __MABI_AH_BIN__   absolute path to the mabi-ah binary
+    __HOME__          absolute path to the user's home directory
+    __LOG_DIR__       absolute directory for stdout/stderr logs
+  Install (manual): copy to ~/Library/LaunchAgents/dev.mabi-ah.collect.plist,
+  then: launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/dev.mabi-ah.collect.plist
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>dev.mabi-ah.collect</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>__MABI_AH_BIN__</string>
+    <string>collect</string>
+    <string>--quiet</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key>
+    <string>__HOME__</string>
+  </dict>
+
+  <key>StartInterval</key>
+  <integer>1800</integer>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>__LOG_DIR__/mabi-ah-collect.out.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>__LOG_DIR__/mabi-ah-collect.err.log</string>
+</dict>
+</plist>
