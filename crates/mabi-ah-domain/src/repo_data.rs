@@ -93,10 +93,10 @@ impl CatalogSource {
     pub fn priority(self) -> u8 {
         match self {
             Self::RepoFact => 0,
-            Self::LabanyuReference => 0, // v11 red stub
-            Self::RepoObserved => 1,
-            Self::LocalObserved => 2,
-            Self::UserImport => 3,
+            Self::LabanyuReference => 1,
+            Self::RepoObserved => 2,
+            Self::LocalObserved => 3,
+            Self::UserImport => 4,
         }
     }
 }
@@ -541,8 +541,15 @@ pub struct EnchantScrollRef {
 impl EnchantScrollRef {
     /// As a catalog enchant dated `fetched_date` (`YYYY-MM-DD`), count 0.
     pub fn to_enchant_entry(&self, fetched_date: &str) -> EnchantEntry {
-        let _ = fetched_date;
-        todo!("v11 red")
+        EnchantEntry {
+            slot: self.slot.clone(),
+            name: self.name.clone(),
+            rank: self.rank.clone(),
+            effects: self.effect_lines.clone(),
+            observed_count: 0,
+            first_seen: fetched_date.to_owned(),
+            last_seen: fetched_date.to_owned(),
+        }
     }
 }
 
@@ -603,8 +610,39 @@ impl DataEntry for EnchantScrollRef {
 pub fn load_reference<T: DataEntry + DeserializeOwned>(
     json: &str,
 ) -> Result<ReferenceFile<T>, RepoDataError> {
-    let _ = json;
-    Err(RepoDataError::Missing("v11 red"))
+    let file: ReferenceFile<T> =
+        serde_json::from_str(json).map_err(|e| RepoDataError::Json(e.to_string()))?;
+    if file.schema_version != SCHEMA_VERSION {
+        return Err(RepoDataError::SchemaVersion(file.schema_version));
+    }
+    if file.kind != T::KIND {
+        return Err(RepoDataError::Kind {
+            expected: T::KIND,
+            found: file.kind,
+        });
+    }
+    if file.source != LABANYU_SOURCE {
+        return Err(RepoDataError::Entry(format!(
+            "unknown reference source {:?}",
+            file.source
+        )));
+    }
+    if !file.source_url.starts_with("https://") {
+        return Err(RepoDataError::Entry(format!(
+            "source_url must be https: {:?}",
+            file.source_url
+        )));
+    }
+    non_empty("attribution", &file.attribution)?;
+    time::OffsetDateTime::parse(
+        &file.fetched_at,
+        &time::format_description::well_known::Rfc3339,
+    )
+    .map_err(|_| RepoDataError::Date(file.fetched_at.clone()))?;
+    for e in &file.entries {
+        e.validate()?;
+    }
+    Ok(file)
 }
 
 // ---------- loading ----------

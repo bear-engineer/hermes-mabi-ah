@@ -2,7 +2,8 @@
 use clap::Args;
 use mabi_ah_app::error::AppError;
 use mabi_ah_app::ports::{CatalogQuery, ListingQuery};
-use mabi_ah_app::usecases::{ItemFilter, QueryEnv, catalog_enchants, check_filter_names};
+use mabi_ah_app::usecases::catalog::{catalog_enchants_with, check_reforge_names};
+use mabi_ah_app::usecases::{ItemFilter, QueryEnv, catalog_reforges, check_filter_names};
 use mabi_ah_domain::listing::Listing;
 use mabi_ah_domain::option::predicate::{
     EnchantPred, ErgPred, FilterExpr, OptionPredicate, ReforgePred,
@@ -89,9 +90,9 @@ fn has_unescaped_pipe(s: &str) -> bool {
     false
 }
 
-/// Parses the filter flags and checks the option types / enchant names they use
-/// against the registry, repo facts and the merged catalog (exit 2 / exit 3 with
-/// similar names).
+/// Parses the filter flags and checks the option types / enchant names / reforge
+/// option names they use against the registry, repo facts, Labanyu reference data
+/// and the merged catalog (exit 2 / exit 3 with similar names), before any API call.
 pub fn checked_filter(ctx: &Context, args: &FilterArgs) -> Result<ItemFilter, AppError> {
     let filter = args.item_filter()?;
     if filter.options.is_empty() && filter.predicates.is_empty() {
@@ -119,14 +120,34 @@ pub fn checked_filter(ctx: &Context, args: &FilterArgs) -> Result<ItemFilter, Ap
     );
     types.sort();
     types.dedup();
-    let mut enchants: Vec<String> =
-        catalog_enchants(&ctx.store, &repo.enchants, &CatalogQuery::default())?
-            .into_iter()
-            .map(|s| s.entry.name)
-            .collect();
+    let reference = ctx.reference()?;
+    let mut enchants: Vec<String> = catalog_enchants_with(
+        &ctx.store,
+        &repo.enchants,
+        &reference.enchant_entries(),
+        &CatalogQuery::default(),
+    )?
+    .into_iter()
+    .map(|s| s.entry.name)
+    .collect();
     enchants.sort();
     enchants.dedup();
     check_filter_names(&filter, &types, &enchants)?;
+    if filter
+        .predicates
+        .iter()
+        .any(|p| matches!(p, OptionPredicate::Reforge(_)))
+    {
+        let mut reforges = reference.reforge_names();
+        reforges.extend(
+            catalog_reforges(&ctx.store, &repo.reforges, &CatalogQuery::default())?
+                .into_iter()
+                .map(|s| s.entry.option),
+        );
+        reforges.sort();
+        reforges.dedup();
+        check_reforge_names(&filter, &reforges)?;
+    }
     Ok(filter)
 }
 

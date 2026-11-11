@@ -457,5 +457,11 @@ fn collect_records_catalog_observations() {
     let env = Env::new(&base);
     env.run(&["collect", "--max-calls", "1"]).ok();
     let v = env.run(&["catalog", "enchant"]).ok();
-    assert_eq!(v["data"]["rows"][0]["name"], "날카로운", "{v}");
+    // v11: reference rows are listed too; the collected one is local_observed.
+    let rows = v["data"]["rows"].as_array().unwrap();
+    assert!(
+        rows.iter()
+            .any(|r| r["name"] == "날카로운" && r["source"] == "local_observed"),
+        "{v}"
+    );
 }

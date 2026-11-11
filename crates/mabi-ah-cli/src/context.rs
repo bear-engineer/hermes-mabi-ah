@@ -63,6 +63,11 @@ impl Context {
         })
     }
 
+    /// Embedded Labanyu reference data (no expiry).
+    pub fn reference(&self) -> Result<crate::repo_data::Reference, AppError> {
+        crate::repo_data::Reference::load()
+    }
+
     /// Embedded repo data (facts + fresh observed files).
     pub fn repo(&self) -> Result<crate::repo_data::RepoData, AppError> {
         crate::repo_data::RepoData::load(self.clock.now().date())

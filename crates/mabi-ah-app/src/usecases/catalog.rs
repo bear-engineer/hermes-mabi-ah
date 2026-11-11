@@ -130,13 +130,34 @@ pub fn catalog_enchants(
     repo: &[EnchantEntry],
     q: &CatalogQuery,
 ) -> Result<Vec<Sourced<EnchantEntry>>, AppError> {
+    catalog_enchants_with(store, repo, &[], q)
+}
+
+/// Like [`catalog_enchants`], plus `reference` entries tagged
+/// [`CatalogSource::LabanyuReference`] (dated by their `fetched_at`; on a tie every
+/// observed source wins).
+pub fn catalog_enchants_with(
+    store: &dyn CatalogStore,
+    repo: &[EnchantEntry],
+    reference: &[EnchantEntry],
+    q: &CatalogQuery,
+) -> Result<Vec<Sourced<EnchantEntry>>, AppError> {
+    let keep = |e: &EnchantEntry| has(&e.name, q.text.as_ref()) && is(&e.slot, q.slot.as_ref());
+    let reference = reference.iter().filter(|e| keep(e)).map(|e| Sourced {
+        source: CatalogSource::LabanyuReference,
+        entry: e.clone(),
+    });
     let local = store.catalog_enchants(&unlimited(q))?;
-    Ok(merged(
-        local,
+    let mut out = merged(
+        local.into_iter().chain(reference).collect(),
         repo,
-        |e| has(&e.name, q.text.as_ref()) && is(&e.slot, q.slot.as_ref()),
-        q.limit,
-    ))
+        keep,
+        None,
+    );
+    if let Some(n) = q.limit {
+        out.truncate(n);
+    }
+    Ok(out)
 }
 
 /// Reforge options matching `q` (option substring, exact category and slot).
@@ -250,6 +271,22 @@ pub fn check_filter_names(
 /// option names): an unknown name is not found (exit 3) with similar names in the
 /// hint. An empty known list skips the check.
 pub fn check_reforge_names(filter: &ItemFilter, known_reforges: &[String]) -> Result<(), AppError> {
-    let _ = (filter, known_reforges);
-    Ok(()) // v11 red stub
+    if known_reforges.is_empty() {
+        return Ok(());
+    }
+    for p in &filter.predicates {
+        if let OptionPredicate::Reforge(r) = p {
+            let name = r.name.trim();
+            if !known_reforges.iter().any(|k| k.trim() == name) {
+                return Err(AppError::NotFound {
+                    what: format!("reforge option '{name}'"),
+                    hint: Some(similar(name, known_reforges).unwrap_or_else(|| {
+                        "`catalog reforge` 또는 `catalog reference --kind reforge_option_names`로 이름을 확인하세요"
+                            .to_owned()
+                    })),
+                });
+            }
+        }
+    }
+    Ok(())
 }
