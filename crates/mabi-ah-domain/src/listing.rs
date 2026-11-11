@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
+use time::format_description::well_known::Rfc3339;
 
 use crate::error::DomainError;
 use crate::item_name::ItemName;
@@ -20,7 +21,7 @@ pub struct Listing {
 impl Listing {
     /// `unit_price * count`, saturating at `u64::MAX`.
     pub fn total_price(&self) -> u64 {
-        todo!("total_price")
+        self.unit_price.saturating_mul(self.count)
     }
 }
 
@@ -39,14 +40,19 @@ pub struct ListingDto {
 
 /// Parse an API UTC timestamp such as `2026-11-13T11:43:00.000Z`.
 pub(crate) fn parse_utc(s: &str) -> Result<OffsetDateTime, DomainError> {
-    let _ = s;
-    todo!("parse_utc")
+    OffsetDateTime::parse(s, &Rfc3339).map_err(|_| DomainError::InvalidTimestamp(s.to_owned()))
 }
 
 impl TryFrom<ListingDto> for Listing {
     type Error = DomainError;
     fn try_from(dto: ListingDto) -> Result<Self, DomainError> {
-        let _ = dto;
-        todo!("listing try_from")
+        Ok(Self {
+            name: ItemName::new(dto.item_name, dto.item_display_name),
+            count: dto.item_count,
+            category: dto.auction_item_category,
+            unit_price: dto.auction_price_per_unit,
+            expires_at: parse_utc(&dto.date_auction_expire)?,
+            options: dto.item_option.unwrap_or_default(),
+        })
     }
 }

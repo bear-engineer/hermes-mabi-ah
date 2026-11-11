@@ -5,6 +5,7 @@ use time::OffsetDateTime;
 
 use crate::error::DomainError;
 use crate::item_name::ItemName;
+use crate::listing::parse_utc;
 use crate::option::ItemOption;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -36,7 +37,14 @@ pub struct TradeDto {
 impl TryFrom<TradeDto> for Trade {
     type Error = DomainError;
     fn try_from(dto: TradeDto) -> Result<Self, DomainError> {
-        let _ = dto;
-        todo!("trade try_from")
+        Ok(Self {
+            trade_id: dto.auction_buy_id,
+            name: ItemName::new(dto.item_name, dto.item_display_name),
+            count: dto.item_count,
+            category: dto.auction_item_category,
+            unit_price: dto.auction_price_per_unit,
+            traded_at: parse_utc(&dto.date_auction_buy)?,
+            options: dto.item_option.unwrap_or_default(),
+        })
     }
 }
