@@ -79,16 +79,25 @@ pub fn remove_watch(store: &mut dyn WatchStore, id: &str) -> Result<(), AppError
 /// Outcome of one `check_watch` run.
 #[derive(Debug, Clone, PartialEq)]
 pub struct WatchCheck {
-    /// Every undelivered alert (now marked delivered); empty if any rule failed.
+    /// Every undelivered alert (now marked delivered); empty if any rule failed
+    /// with a retryable error.
     pub alerts: Vec<Alert>,
-    /// One error per rule whose API call (or evaluation) failed.
-    pub errors: Vec<AppError>,
+    /// One error per rule whose API call (or evaluation) failed, with the
+    /// rule's item name.
+    pub errors: Vec<(String, AppError)>,
+    /// How many rules were evaluated.
+    pub rules: usize,
+    /// True when delivery was deferred: a retryable failure, or every rule
+    /// failed. The caller must report a failure; alerts stay queued.
+    pub held: bool,
 }
 
 /// Evaluates every rule (a failing rule never stops the others), then drains
 /// the outbox so alerts queued by earlier runs are delivered too. While any
-/// rule failed the outbox is left untouched: the caller reports a failure and
-/// the pending alerts are delivered by the next healthy run.
+/// rule failed with a retryable error the outbox is left untouched: the caller
+/// reports a failure and the pending alerts are delivered by the next healthy
+/// run. Permanent rule errors (unknown item, bad filter) are reported but do
+/// not hold back the other rules' alerts.
 pub fn check_watch(
     gw: &mut dyn AuctionGateway,
     store: &dyn WatchStore,
@@ -96,7 +105,9 @@ pub fn check_watch(
     opts: &OptionRegistry,
 ) -> Result<WatchCheck, AppError> {
     let mut errors = Vec::new();
-    for rule in store.list()? {
+    let rules = store.list()?;
+    let rule_count = rules.len();
+    for rule in rules {
         let query = ListingQuery {
             name: Some(rule.base_name.clone()),
             category: rule.category.clone(),
@@ -105,7 +116,7 @@ pub fn check_watch(
         let page = match gw.listings(&query) {
             Ok(p) => p,
             Err(e) => {
-                errors.push(e);
+                errors.push((rule.base_name.clone(), e));
                 continue;
             }
         };
@@ -115,15 +126,18 @@ pub fn check_watch(
                     outbox.enqueue_if_new(&alert)?;
                 }
             }
-            Err(e) => errors.push(AppError::Usage(e.to_string())),
+            Err(e) => errors.push((rule.base_name.clone(), AppError::Usage(e.to_string()))),
         }
     }
-    let alerts = if errors.is_empty() {
-        outbox.drain()?
-    } else {
-        Vec::new()
-    };
-    Ok(WatchCheck { alerts, errors })
+    let held =
+        errors.iter().any(|(_, e)| e.retryable()) || (rule_count > 0 && errors.len() == rule_count);
+    let alerts = if !held { outbox.drain()? } else { Vec::new() };
+    Ok(WatchCheck {
+        alerts,
+        errors,
+        rules: rule_count,
+        held,
+    })
 }
 
 pub fn query_npc_shop(

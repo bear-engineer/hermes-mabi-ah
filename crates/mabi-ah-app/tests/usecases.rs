@@ -642,6 +642,36 @@ fn check_watch_permanent_rule_error_does_not_block_other_alerts() {
     assert_eq!(r1.errors.len(), 1);
     assert_eq!(r1.alerts.len(), 1);
     assert_eq!(r1.alerts[0].rule_id, "a");
+    assert!(!r1.held);
+}
+
+#[test]
+fn check_watch_holds_queue_when_every_rule_fails() {
+    let mut w = MemWatch::default();
+    let r = rule("a", Some(250));
+    add_watch(&mut w, &r).unwrap();
+    let reg = OptionRegistry::default();
+    let mut ob = MemOutbox::default();
+    // An alert queued by an earlier (interrupted) run, not yet delivered.
+    let queued =
+        mabi_ah_domain::watch::evaluate(&r, &[listing("테스트 검", "검", 200)], &reg).unwrap();
+    assert_eq!(queued.len(), 1);
+    ob.enqueue_if_new(&queued[0]).unwrap();
+    let mut gw = FakeGw {
+        fail_name: Some((
+            "테스트 검".to_owned(),
+            AppError::NotFound {
+                what: "테스트 검".to_owned(),
+                hint: None,
+            },
+        )),
+        ..FakeGw::default()
+    };
+    // Every rule fails: nothing is delivered, the queue is kept.
+    let r1 = check_watch(&mut gw, &w, &mut ob, &reg).unwrap();
+    assert!(r1.held);
+    assert!(r1.alerts.is_empty());
+    assert_eq!(ob.drain().unwrap().len(), 1, "queued alert must survive");
 }
 
 // --- shop / horn / doctor / meter -------------------------------------------

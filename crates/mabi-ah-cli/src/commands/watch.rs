@@ -150,9 +150,37 @@ fn check(ctx: &mut Context, a: &WatchCheckArgs) -> Result<Value, AppError> {
     let mut gw = ctx.gateway()?;
     let report = check_watch(&mut gw, &ctx.store, &mut outbox, &ctx.options)?;
     drop(outbox);
-    if let Some(first) = report.errors.into_iter().next() {
-        return Err(first);
+    // Deferred delivery (retryable failure, or every rule failed): report the
+    // most relevant error; alerts stay queued for the next run.
+    let fatal = if report.held {
+        report
+            .errors
+            .iter()
+            .position(|(_, e)| e.retryable())
+            .or(Some(0))
+    } else {
+        None
+    };
+    if let Some(pos) = fatal {
+        return Err(report
+            .errors
+            .into_iter()
+            .nth(pos)
+            .map(|(_, e)| e)
+            .unwrap_or_else(|| AppError::Internal("watch error vanished".to_owned())));
     }
+    // Permanent per-rule failures: warn on stderr, keep delivering the rest.
+    for (name, e) in &report.errors {
+        eprintln!(
+            "mabi-ah: 감시 규칙 '{name}'을(를) 확인하지 못했어요 ({}): {e}",
+            e.code()
+        );
+    }
+    let rule_errors: Vec<Value> = report
+        .errors
+        .iter()
+        .map(|(name, e)| json!({"name": name, "code": e.code(), "message": e.to_string()}))
+        .collect();
     let alerts = report.alerts;
     match a.emit {
         Emit::Text => {
@@ -165,6 +193,7 @@ fn check(ctx: &mut Context, a: &WatchCheckArgs) -> Result<Value, AppError> {
         }
         Emit::Json => Ok(json!({
             "count": alerts.len(),
+            "rule_errors": rule_errors,
             "alerts": alerts.iter().map(|al| json!({
                 "rule_id": al.rule_id,
                 "listing": listing_json(&al.listing),
