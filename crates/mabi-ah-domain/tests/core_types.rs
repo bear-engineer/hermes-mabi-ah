@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used)]
 use mabi_ah_domain::item_name::ItemName;
 
 #[test]
@@ -61,7 +62,9 @@ fn listing_null_or_missing_options_is_empty() {
     );
     let dto: ListingDto = serde_json::from_str(&j).unwrap();
     assert!(Listing::try_from(dto).unwrap().options.is_empty());
-    let j2 = j.replace(r#","item_option": null"#, "").replace(r#", "item_option": null"#, "");
+    let j2 = j
+        .replace(r#","item_option": null"#, "")
+        .replace(r#", "item_option": null"#, "");
     let dto: ListingDto = serde_json::from_str(&j2).unwrap();
     assert!(Listing::try_from(dto).unwrap().options.is_empty());
 }

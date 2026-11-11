@@ -84,7 +84,14 @@ pub const SPEC_CATEGORIES: [&str; 79] = [
 ];
 
 /// Categories seen in real responses but absent from the spec enum.
-pub const OBSERVED_EXTRAS: [&str; 6] = ["애뮬릿", "유물", "펫 토템", "대형 낫", "대미지 스킨", "힐링 원드"];
+pub const OBSERVED_EXTRAS: [&str; 6] = [
+    "애뮬릿",
+    "유물",
+    "펫 토템",
+    "대형 낫",
+    "대미지 스킨",
+    "힐링 원드",
+];
 
 /// Known categories (spec + observed) plus any discovered at runtime.
 #[derive(Debug, Clone, Default)]
@@ -98,18 +105,27 @@ impl CategoryRegistry {
     }
 
     pub fn is_known(&self, name: &str) -> bool {
-        let _ = name;
-        todo!("is_known")
+        SPEC_CATEGORIES.contains(&name)
+            || OBSERVED_EXTRAS.contains(&name)
+            || self.discovered.iter().any(|d| d == name)
     }
 
     /// All known names: spec, then observed extras, then discovered (insertion order).
     pub fn all(&self) -> Vec<String> {
-        todo!("all")
+        SPEC_CATEGORIES
+            .iter()
+            .chain(OBSERVED_EXTRAS.iter())
+            .map(|s| (*s).to_owned())
+            .chain(self.discovered.iter().cloned())
+            .collect()
     }
 
     /// Record an unseen category. Returns `true` if it was new.
     pub fn record_discovered(&mut self, name: &str) -> bool {
-        let _ = name;
-        todo!("record_discovered")
+        if self.is_known(name) {
+            return false;
+        }
+        self.discovered.push(name.to_owned());
+        true
     }
 }
