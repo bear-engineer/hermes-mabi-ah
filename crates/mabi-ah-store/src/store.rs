@@ -55,23 +55,23 @@ CREATE TABLE budget_ledger (day TEXT PRIMARY KEY, calls INTEGER NOT NULL);
 CREATE TABLE categories_discovered (name TEXT PRIMARY KEY);
 "];
 
-fn store_err(e: impl std::fmt::Display) -> AppError {
+pub(crate) fn store_err(e: impl std::fmt::Display) -> AppError {
     AppError::Store(e.to_string())
 }
 
-fn ms(t: OffsetDateTime) -> i64 {
+pub(crate) fn ms(t: OffsetDateTime) -> i64 {
     i64::try_from(t.unix_timestamp_nanos() / 1_000_000).unwrap_or(i64::MAX)
 }
 
-fn from_ms(v: i64) -> Result<OffsetDateTime, AppError> {
+pub(crate) fn from_ms(v: i64) -> Result<OffsetDateTime, AppError> {
     OffsetDateTime::from_unix_timestamp_nanos(i128::from(v) * 1_000_000).map_err(store_err)
 }
 
-fn to_i64(v: u64) -> i64 {
+pub(crate) fn to_i64(v: u64) -> i64 {
     i64::try_from(v).unwrap_or(i64::MAX)
 }
 
-fn to_u64(v: i64) -> u64 {
+pub(crate) fn to_u64(v: i64) -> u64 {
     u64::try_from(v).unwrap_or(0)
 }
 
@@ -133,7 +133,7 @@ pub fn data_dir() -> PathBuf {
 
 /// Trades, gaps, watch rules and the alert outbox.
 pub struct SqliteStore {
-    conn: Connection,
+    pub(crate) conn: Connection,
 }
 
 /// Budget ledger on its own connection, separate from [`SqliteStore`].
