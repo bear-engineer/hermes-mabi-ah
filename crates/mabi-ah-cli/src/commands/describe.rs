@@ -39,6 +39,7 @@ pub const EXAMPLES: &[&str] = &[
     "mabi-ah catalog values --type \"토템 효과\"",
     "mabi-ah catalog learn --category 장갑 --max-calls 3",
     "mabi-ah catalog import ./enchants.json",
+    "mabi-ah catalog export --to data/observed",
     "mabi-ah catalog reference --kind totem_abilities --query 대미지",
     "mabi-ah catalog reference --kind echostone_awakening_abilities --query 체력 --limit 5",
     "mabi-ah option-prices --category 토템 --family \"토템 효과\" --max-pages 2",

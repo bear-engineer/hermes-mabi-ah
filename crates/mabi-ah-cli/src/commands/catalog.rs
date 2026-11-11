@@ -8,7 +8,9 @@ use mabi_ah_app::error::AppError;
 use mabi_ah_app::ports::CatalogQuery;
 use mabi_ah_app::usecases::catalog::catalog_enchants_with;
 use mabi_ah_app::usecases::{catalog_option_values, catalog_reforges, learn_catalog};
-use mabi_ah_domain::repo_data::{CatalogSource, Sourced};
+use mabi_ah_domain::repo_data::{
+    CatalogSource, ExportWindow, ObservedEntry, Sourced, parse_date, to_observed_json,
+};
 use serde::Serialize;
 use serde_json::{Value, json};
 
@@ -37,6 +39,8 @@ pub enum CatalogCommand {
     Import(ImportArgs),
     /// Labanyu reference name lists (totems, echostone, Murias relics, set bonuses, categories, reforge names/types).
     Reference(ReferenceArgs),
+    /// Write the local observed catalog (whitelisted fields, 30-day expiry) as data/observed files.
+    Export(ExportArgs),
 }
 
 impl CatalogCommand {
@@ -49,6 +53,7 @@ impl CatalogCommand {
             Self::Learn(_) => "catalog learn",
             Self::Import(_) => "catalog import",
             Self::Reference(_) => "catalog reference",
+            Self::Export(_) => "catalog export",
         }
     }
 }
@@ -122,6 +127,13 @@ pub struct LearnArgs {
     /// Maximum API calls (one page each).
     #[arg(long, default_value_t = 20)]
     pub max_calls: u32,
+}
+
+#[derive(Debug, Args)]
+pub struct ExportArgs {
+    /// Target directory (e.g. data/observed); created if missing.
+    #[arg(long)]
+    pub to: std::path::PathBuf,
 }
 
 #[derive(Debug, Args)]
@@ -226,6 +238,7 @@ pub fn run(ctx: &mut Context, args: &CatalogArgs) -> Result<Value, AppError> {
                 "truncated": r.truncated,
             }))
         }
+        CatalogCommand::Export(a) => export(ctx, a),
         CatalogCommand::Import(a) => {
             let text = std::fs::read_to_string(&a.file)
                 .map_err(|e| AppError::Usage(format!("cannot read {}: {e}", a.file.display())))?;
@@ -409,4 +422,68 @@ fn option_types(ctx: &Context) -> Result<Value, AppError> {
     }
     rows.sort_by(|a, b| a.0.cmp(&b.0));
     Ok(rows_data(rows.into_iter().map(|(_, v)| v).collect()))
+}
+
+/// Local observations only: never labanyu_reference, repo_fact, repo_observed or
+/// user_import rows (those have their own origin and must not be re-exported).
+fn local_only<T>(rows: Vec<Sourced<T>>) -> Vec<T> {
+    rows.into_iter()
+        .filter(|s| s.source == CatalogSource::LocalObserved)
+        .map(|s| s.entry)
+        .collect()
+}
+
+/// Write `<file>` for `entries` (skipped when empty); returns the report row.
+fn write_observed<T>(
+    dir: &std::path::Path,
+    file: &str,
+    entries: &[T],
+    dates: impl Fn(&T) -> (String, String),
+) -> Result<Option<Value>, AppError>
+where
+    T: ObservedEntry + Serialize + Clone,
+{
+    if entries.is_empty() {
+        return Ok(None);
+    }
+    let first = entries.iter().map(|e| dates(e).0).min().unwrap_or_default();
+    let last = entries.iter().map(|e| dates(e).1).max().unwrap_or_default();
+    let bad = |e: mabi_ah_domain::repo_data::RepoDataError| AppError::Internal(e.to_string());
+    let window = ExportWindow {
+        observed_from: parse_date(&first).map_err(bad)?,
+        observed_to: parse_date(&last).map_err(bad)?,
+    };
+    let text = to_observed_json(window, entries).map_err(bad)?;
+    let path = dir.join(file);
+    std::fs::write(&path, &text)
+        .map_err(|e| AppError::Usage(format!("cannot write {}: {e}", path.display())))?;
+    let parsed: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
+    Ok(Some(json!({
+        "file": file,
+        "kind": parsed["kind"],
+        "entries": entries.len(),
+        "observed_from": parsed["observed_from"],
+        "observed_to": parsed["observed_to"],
+        "expires_at": parsed["expires_at"],
+    })))
+}
+
+fn export(ctx: &Context, a: &ExportArgs) -> Result<Value, AppError> {
+    std::fs::create_dir_all(&a.to)
+        .map_err(|e| AppError::Usage(format!("cannot create {}: {e}", a.to.display())))?;
+    let q = CatalogQuery::default();
+    let enchants = local_only(ctx.store.catalog_enchants(&q)?);
+    let reforges = local_only(ctx.store.catalog_reforges(&q)?);
+    let values = local_only(ctx.store.catalog_option_values(None, &q)?);
+    let mut files = Vec::new();
+    files.extend(write_observed(&a.to, "enchants.json", &enchants, |e| {
+        (e.first_seen.clone(), e.last_seen.clone())
+    })?);
+    files.extend(write_observed(&a.to, "reforges.json", &reforges, |e| {
+        (e.first_seen.clone(), e.last_seen.clone())
+    })?);
+    files.extend(write_observed(&a.to, "option_values.json", &values, |e| {
+        (e.first_seen.clone(), e.last_seen.clone())
+    })?);
+    Ok(json!({ "to": a.to.display().to_string(), "files": files }))
 }
