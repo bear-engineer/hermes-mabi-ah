@@ -37,6 +37,8 @@ jobs:
       - run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
       - run: cargo test --workspace --locked
       - run: cargo test --workspace --no-default-features --locked
+      - name: docs match describe (README.md, README.en.md, SKILL.md)
+        run: sh scripts/check-docs.sh
       - run: cargo doc --workspace --no-deps --locked
         env:
           RUSTDOCFLAGS: -D warnings
