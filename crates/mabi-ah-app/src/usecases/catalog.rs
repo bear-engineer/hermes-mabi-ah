@@ -245,3 +245,11 @@ pub fn check_filter_names(
     }
     Ok(())
 }
+
+/// Check reforge predicate names against `known_reforges` (catalog + reference
+/// option names): an unknown name is not found (exit 3) with similar names in the
+/// hint. An empty known list skips the check.
+pub fn check_reforge_names(filter: &ItemFilter, known_reforges: &[String]) -> Result<(), AppError> {
+    let _ = (filter, known_reforges);
+    Ok(()) // v11 red stub
+}

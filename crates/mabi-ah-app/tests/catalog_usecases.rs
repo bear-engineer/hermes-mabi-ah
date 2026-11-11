@@ -723,3 +723,36 @@ fn catalog_reforges_values_and_types_merge_with_repo() {
         vec![("세트 효과".to_owned(), 2), ("에르그".to_owned(), 1)]
     );
 }
+
+// ---------- v11: reforge names ----------
+
+#[test]
+fn unknown_reforge_name_is_not_found_with_spaced_suggestion() {
+    use mabi_ah_app::usecases::catalog::check_reforge_names;
+    let known: Vec<String> = ["최대 공격력", "최소 공격력", "마법 공격력", "최대 생명력"]
+        .iter()
+        .map(|s| (*s).to_owned())
+        .collect();
+    let filter = ItemFilter {
+        predicates: vec![OptionPredicate::Reforge(
+            "최대공격력>=18".parse::<ReforgePred>().unwrap(),
+        )],
+        ..ItemFilter::default()
+    };
+    match check_reforge_names(&filter, &known).unwrap_err() {
+        AppError::NotFound { what, hint } => {
+            assert!(what.contains("최대공격력"), "{what}");
+            let hint = hint.unwrap_or_default();
+            assert!(hint.starts_with("비슷한 이름: 최대 공격력"), "{hint}");
+        }
+        other => panic!("expected NotFound, got {other:?}"),
+    }
+    let ok = ItemFilter {
+        predicates: vec![OptionPredicate::Reforge(
+            "2:최대 공격력>=18".parse::<ReforgePred>().unwrap(),
+        )],
+        ..ItemFilter::default()
+    };
+    check_reforge_names(&ok, &known).unwrap();
+    check_reforge_names(&filter, &[]).unwrap();
+}
