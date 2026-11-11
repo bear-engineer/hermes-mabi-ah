@@ -10,6 +10,12 @@ pub struct RetryPolicy {
     pub cap_ms: u64,
 }
 
+impl Default for RetryPolicy {
+    fn default() -> Self {
+        todo!()
+    }
+}
+
 impl RetryPolicy {
     /// `attempt` is the 1-based attempt that just failed. `None` = do not retry.
     pub fn next_delay(

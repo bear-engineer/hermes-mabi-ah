@@ -20,3 +20,6 @@ impl Tier {
         }
     }
 }
+
+/// Burst capacity of the CLI pacing bucket (the dev tier answers bursts with 429).
+pub const CLI_BUCKET_CAPACITY: u32 = 0;

@@ -350,3 +350,14 @@ fn tier_bucket_uses_development_rate() {
     }
     assert_eq!(t.get(), Duration::from_millis(200));
 }
+
+#[test]
+fn default_retry_policy_is_the_single_definition() {
+    let p = RetryPolicy::default();
+    assert_eq!((p.max_attempts, p.base_ms, p.cap_ms), (4, 500, 8_000));
+}
+
+#[test]
+fn cli_bucket_does_not_burst() {
+    assert_eq!(mabi_ah_nexon::limits::CLI_BUCKET_CAPACITY, 1);
+}

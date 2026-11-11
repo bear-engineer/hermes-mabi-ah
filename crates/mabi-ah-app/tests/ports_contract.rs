@@ -427,3 +427,19 @@ fn watch_store_and_outbox_fire_each_alert_once() {
     // Delivered alerts stay deduped.
     assert!(!outbox.enqueue_if_new(&alert).unwrap());
 }
+
+#[test]
+fn exit_code_table_values() {
+    use mabi_ah_app::error::exit_code as x;
+    let got = [
+        x::OK,
+        x::INTERNAL,
+        x::USAGE,
+        x::NOT_FOUND,
+        x::AUTH,
+        x::RATE_OR_BUDGET,
+        x::UPSTREAM,
+        x::STORE,
+    ];
+    assert_eq!(got, [0, 1, 2, 3, 4, 5, 6, 7]);
+}

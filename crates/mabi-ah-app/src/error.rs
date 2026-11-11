@@ -37,6 +37,18 @@ pub enum AppError {
     Internal(String),
 }
 
+/// Process exit codes; the one definition (contract from the plan).
+pub mod exit_code {
+    pub const OK: u8 = 0;
+    pub const INTERNAL: u8 = 0;
+    pub const USAGE: u8 = 0;
+    pub const NOT_FOUND: u8 = 0;
+    pub const AUTH: u8 = 0;
+    pub const RATE_OR_BUDGET: u8 = 0;
+    pub const UPSTREAM: u8 = 0;
+    pub const STORE: u8 = 0;
+}
+
 impl AppError {
     /// Process exit code (0 is success and never returned here).
     pub fn exit_code(&self) -> u8 {
