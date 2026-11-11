@@ -1,14 +1,17 @@
 //! Subcommands. Each module owns its clap args and a `run` returning the
 //! envelope `data`.
 pub mod budget;
+pub mod catalog;
 pub mod categories;
 pub mod collect;
 pub mod common;
 pub mod config_cmd;
+pub mod describe;
 pub mod doctor;
 pub mod horn;
 pub mod listings;
 pub mod npc_shop;
+pub mod option_prices;
 pub mod rank;
 pub mod search;
 pub mod trades;
@@ -49,6 +52,12 @@ pub enum Command {
     Doctor(doctor::DoctorArgs),
     /// Show the resolved configuration.
     Config(config_cmd::ConfigArgs),
+    /// Option name catalog (enchants, reforges, option types, values; learn, import).
+    Catalog(catalog::CatalogArgs),
+    /// Lowest current price per option value and level of one option family.
+    OptionPrices(option_prices::OptionPricesArgs),
+    /// Machine-readable description of every command, flag and filter grammar.
+    Describe(describe::DescribeArgs),
 }
 
 impl Command {
@@ -67,6 +76,9 @@ impl Command {
             Self::Budget(_) => "budget",
             Self::Doctor(_) => "doctor",
             Self::Config(_) => "config",
+            Self::Catalog(c) => c.command.name(),
+            Self::OptionPrices(_) => "option-prices",
+            Self::Describe(_) => "describe",
         }
     }
 
@@ -85,6 +97,9 @@ impl Command {
             Self::Budget(a) => budget::run(ctx, a),
             Self::Doctor(a) => doctor::run(ctx, a),
             Self::Config(a) => config_cmd::run(ctx, a),
+            Self::Catalog(a) => catalog::run(ctx, a),
+            Self::OptionPrices(a) => option_prices::run(ctx, a),
+            Self::Describe(a) => describe::run(ctx, a),
         }
     }
 }

@@ -10,10 +10,13 @@ use crate::output::rfc3339;
 
 #[derive(Debug, Args)]
 pub struct NpcShopArgs {
+    /// NPC name (e.g. 델).
     #[arg(long)]
     pub npc: String,
+    /// Server name (e.g. 류트).
     #[arg(long)]
     pub server: String,
+    /// Channel number.
     #[arg(long, default_value_t = 1)]
     pub channel: u32,
 }

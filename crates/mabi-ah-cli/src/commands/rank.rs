@@ -17,13 +17,16 @@ pub enum ByArg {
 
 #[derive(Debug, Args)]
 pub struct RankArgs {
+    /// Rank by trade count or traded value.
     #[arg(long, value_enum, default_value = "volume")]
     pub by: ByArg,
     /// Look-back window such as 24h or 7d.
     #[arg(long, default_value = "24h")]
     pub window: String,
+    /// Only this auction category.
     #[arg(long)]
     pub category: Option<String>,
+    /// Number of rows.
     #[arg(long, default_value_t = 10)]
     pub top: usize,
 }

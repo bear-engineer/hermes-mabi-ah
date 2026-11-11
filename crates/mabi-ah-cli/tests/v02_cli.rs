@@ -213,7 +213,7 @@ fn items_carry_price_ko() {
 fn bad_filter_flag_is_usage_error() {
     let env = fake();
     for flags in [
-        ["--erg", "Z>=40"],
+        ["--erg", "SS>=40"],
         ["--enchant-rank", ">=Q"],
         ["--reforge", ""],
     ] {

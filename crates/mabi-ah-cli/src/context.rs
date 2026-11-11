@@ -63,6 +63,11 @@ impl Context {
         })
     }
 
+    /// Embedded repo data (facts + fresh observed files).
+    pub fn repo(&self) -> Result<crate::repo_data::RepoData, AppError> {
+        crate::repo_data::RepoData::load(self.clock.now().date())
+    }
+
     pub fn used_today(&self) -> Result<u64, AppError> {
         self.ledger.used_on(self.clock.now().date())
     }

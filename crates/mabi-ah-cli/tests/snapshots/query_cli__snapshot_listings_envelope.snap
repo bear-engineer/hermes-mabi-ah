@@ -23,6 +23,7 @@ expression: v
             "value2": "20"
           }
         ],
+        "price_ko": "300",
         "total_price": 600,
         "unit_price": 300
       },
@@ -42,6 +43,7 @@ expression: v
             "value2": "20"
           }
         ],
+        "price_ko": "100",
         "total_price": 200,
         "unit_price": 100
       }

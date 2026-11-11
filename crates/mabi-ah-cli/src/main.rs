@@ -4,6 +4,7 @@ mod config;
 mod context;
 mod exit;
 mod output;
+mod repo_data;
 
 use std::io::{ErrorKind, Write};
 use std::path::PathBuf;
@@ -37,7 +38,7 @@ enum TierArg {
     version,
     about = "Mabinogi auction house CLI (NEXON Open API)"
 )]
-struct Cli {
+pub(crate) struct Cli {
     /// Output format.
     #[arg(long, value_enum, default_value = "json", global = true)]
     format: FormatArg,

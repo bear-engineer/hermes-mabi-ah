@@ -37,6 +37,7 @@ pub struct WatchAddArgs {
     /// Alert when the unit price is at or below this.
     #[arg(long)]
     pub max_price: Option<u64>,
+    /// Auction category for the rule.
     #[arg(long)]
     pub category: Option<String>,
     /// Option filter `<type>[:<sub>](>=|<=|=|~)<value>`; repeatable.
@@ -57,6 +58,7 @@ pub enum Emit {
 
 #[derive(Debug, Args)]
 pub struct WatchCheckArgs {
+    /// Output: json envelope or one text line per alert (cron).
     #[arg(long, value_enum, default_value = "json")]
     pub emit: Emit,
 }

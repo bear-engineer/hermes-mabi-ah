@@ -1,21 +1,20 @@
 //! `listings`: current auction listings.
 use mabi_ah_app::error::AppError;
-use mabi_ah_app::usecases::query_listings;
+use mabi_ah_app::usecases::query_listings_in;
 use serde_json::{Value, json};
 
-use super::common::{QueryArgs, listing_json, parse_filters, stats_json};
+use super::common::{QueryArgs, checked_filter, listing_json, query_env, stats_json};
 use crate::context::Context;
 
 pub fn run(ctx: &mut Context, args: &QueryArgs) -> Result<Value, AppError> {
-    let filters = parse_filters(&args.option)?;
+    let filter = checked_filter(ctx, &args.filter)?;
     let query = args.query()?;
     let mut gw = ctx.gateway()?;
-    let r = query_listings(
+    let r = query_listings_in(
         &mut gw,
         &query,
-        &filters,
-        &ctx.options,
-        &mut ctx.categories,
+        &filter,
+        &mut query_env(ctx),
         args.all_pages,
         args.max_pages,
     )?;

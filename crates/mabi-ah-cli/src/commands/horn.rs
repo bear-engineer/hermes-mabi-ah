@@ -9,6 +9,7 @@ use crate::output::rfc3339;
 
 #[derive(Debug, Args)]
 pub struct HornArgs {
+    /// Server name (e.g. 류트).
     #[arg(long)]
     pub server: String,
     /// Replace character names with `***`.

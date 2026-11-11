@@ -24,6 +24,7 @@ pub struct TrendArgs {
     /// Look-back window such as 24h or 7d.
     #[arg(long, default_value = "7d")]
     pub window: String,
+    /// Bucket size.
     #[arg(long, value_enum, default_value = "day")]
     pub bucket: BucketArg,
 }

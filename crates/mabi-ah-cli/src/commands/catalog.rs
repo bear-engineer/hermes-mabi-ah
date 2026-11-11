@@ -1,0 +1,264 @@
+//! `catalog`: observed enchant / reforge / option-value names merged from the
+//! embedded repo data, the local store and user imports. Every row carries its
+//! `source` and `observed_at`.
+use clap::{Args, Subcommand};
+use mabi_ah_app::error::AppError;
+use mabi_ah_app::ports::CatalogQuery;
+use mabi_ah_app::usecases::{
+    catalog_enchants, catalog_option_values, catalog_reforges, learn_catalog,
+};
+use mabi_ah_domain::repo_data::{CatalogSource, Sourced};
+use serde::Serialize;
+use serde_json::{Value, json};
+
+use crate::context::Context;
+
+#[derive(Debug, Args)]
+pub struct CatalogArgs {
+    #[command(subcommand)]
+    pub command: CatalogCommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum CatalogCommand {
+    /// Known enchants (name, slot, rank, effects).
+    Enchant(EnchantArgs),
+    /// Known reforge options per equipment category and slot (observed level range).
+    Reforge(ReforgeArgs),
+    /// Option types: repo facts (formats) and observed value counts.
+    OptionTypes(OptionTypesArgs),
+    /// Observed values of one option type (e.g. 토템 효과, 에르그).
+    Values(ValuesArgs),
+    /// Scan current listings of a category to grow the local catalog (uses API calls).
+    Learn(LearnArgs),
+    /// Import a catalog JSON file (data/observed format) as user_import.
+    Import(ImportArgs),
+}
+
+impl CatalogCommand {
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Enchant(_) => "catalog enchant",
+            Self::Reforge(_) => "catalog reforge",
+            Self::OptionTypes(_) => "catalog option-types",
+            Self::Values(_) => "catalog values",
+            Self::Learn(_) => "catalog learn",
+            Self::Import(_) => "catalog import",
+        }
+    }
+}
+
+#[derive(Debug, Args)]
+pub struct EnchantArgs {
+    /// Name substring.
+    #[arg(long)]
+    pub query: Option<String>,
+    /// Slot (접두 or 접미).
+    #[arg(long)]
+    pub slot: Option<String>,
+    /// Maximum rows.
+    #[arg(long)]
+    pub limit: Option<usize>,
+}
+
+#[derive(Debug, Args)]
+pub struct ReforgeArgs {
+    /// Option name substring.
+    #[arg(long)]
+    pub query: Option<String>,
+    /// Equipment category (exact, e.g. 한손 검).
+    #[arg(long)]
+    pub category: Option<String>,
+    /// Reforge slot (1-3).
+    #[arg(long)]
+    pub slot: Option<String>,
+    /// Maximum rows.
+    #[arg(long)]
+    pub limit: Option<usize>,
+}
+
+#[derive(Debug, Args)]
+pub struct OptionTypesArgs {}
+
+#[derive(Debug, Args)]
+pub struct ValuesArgs {
+    /// Option type (exact, e.g. 토템 효과).
+    #[arg(long = "type")]
+    pub option_type: String,
+    /// Value substring.
+    #[arg(long)]
+    pub query: Option<String>,
+    /// Category (exact).
+    #[arg(long)]
+    pub category: Option<String>,
+    /// Maximum rows.
+    #[arg(long)]
+    pub limit: Option<usize>,
+}
+
+#[derive(Debug, Args)]
+pub struct LearnArgs {
+    /// Auction category to scan (e.g. 장갑).
+    #[arg(long)]
+    pub category: String,
+    /// Maximum API calls (one page each).
+    #[arg(long, default_value_t = 20)]
+    pub max_calls: u32,
+}
+
+#[derive(Debug, Args)]
+pub struct ImportArgs {
+    /// JSON file in the data/observed format.
+    pub file: std::path::PathBuf,
+}
+
+fn clean(v: &Option<String>) -> Option<String> {
+    v.as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned)
+}
+
+fn row<T: Serialize>(s: &Sourced<T>, last_seen: &str) -> Value {
+    let mut v = serde_json::to_value(&s.entry).unwrap_or(Value::Null);
+    if let Value::Object(m) = &mut v {
+        m.insert("source".into(), json!(s.source.as_str()));
+        m.insert("observed_at".into(), json!(last_seen));
+    }
+    v
+}
+
+fn rows_data(rows: Vec<Value>) -> Value {
+    json!({ "count": rows.len(), "rows": rows })
+}
+
+pub fn run(ctx: &mut Context, args: &CatalogArgs) -> Result<Value, AppError> {
+    match &args.command {
+        CatalogCommand::Enchant(a) => {
+            let repo = ctx.repo()?;
+            let q = CatalogQuery {
+                text: clean(&a.query),
+                slot: clean(&a.slot),
+                limit: a.limit,
+                ..CatalogQuery::default()
+            };
+            let rows = catalog_enchants(&ctx.store, &repo.enchants, &q)?;
+            Ok(rows_data(
+                rows.iter().map(|s| row(s, &s.entry.last_seen)).collect(),
+            ))
+        }
+        CatalogCommand::Reforge(a) => {
+            let repo = ctx.repo()?;
+            let q = CatalogQuery {
+                text: clean(&a.query),
+                category: clean(&a.category),
+                slot: clean(&a.slot),
+                limit: a.limit,
+            };
+            let rows = catalog_reforges(&ctx.store, &repo.reforges, &q)?;
+            Ok(rows_data(
+                rows.iter().map(|s| row(s, &s.entry.last_seen)).collect(),
+            ))
+        }
+        CatalogCommand::Values(a) => {
+            let repo = ctx.repo()?;
+            let q = CatalogQuery {
+                text: clean(&a.query),
+                category: clean(&a.category),
+                limit: a.limit,
+                ..CatalogQuery::default()
+            };
+            let t = a.option_type.trim();
+            let rows = catalog_option_values(&ctx.store, &repo.option_values, Some(t), &q)?;
+            Ok(rows_data(
+                rows.iter().map(|s| row(s, &s.entry.last_seen)).collect(),
+            ))
+        }
+        CatalogCommand::OptionTypes(_) => option_types(ctx),
+        CatalogCommand::Learn(a) => {
+            let mut gw = ctx.gateway()?;
+            let now = time::OffsetDateTime::now_utc();
+            let r = learn_catalog(
+                &mut gw,
+                &mut ctx.store,
+                &ctx.options,
+                &a.category,
+                a.max_calls,
+                now,
+            )?;
+            Ok(json!({
+                "category": r.category,
+                "calls": r.calls,
+                "items": r.items,
+                "observations": r.observations,
+                "purged": r.purged,
+                "truncated": r.truncated,
+            }))
+        }
+        CatalogCommand::Import(a) => {
+            let text = std::fs::read_to_string(&a.file)
+                .map_err(|e| AppError::Usage(format!("cannot read {}: {e}", a.file.display())))?;
+            let today = time::OffsetDateTime::now_utc().date();
+            let r = ctx.store.import_catalog_json(&text, today)?;
+            Ok(json!({
+                "enchants": r.enchants,
+                "reforges": r.reforges,
+                "option_values": r.option_values,
+                "source": CatalogSource::UserImport.as_str(),
+            }))
+        }
+    }
+}
+
+/// One row per option type: repo facts (value formats, status) joined with the
+/// merged observed values (count, newest source and date).
+fn option_types(ctx: &Context) -> Result<Value, AppError> {
+    let repo = ctx.repo()?;
+    let values = catalog_option_values(
+        &ctx.store,
+        &repo.option_values,
+        None,
+        &CatalogQuery::default(),
+    )?;
+    let mut rows: Vec<(String, Value)> = Vec::new();
+    for f in &repo.option_families {
+        rows.push((
+            f.option_type.clone(),
+            json!({
+                "option_type": f.option_type,
+                "sub_type": f.sub_type,
+                "value_format": f.value_format,
+                "value2_format": f.value2_format,
+                "status": f.status,
+                "value_count": 0,
+                "source": CatalogSource::RepoFact.as_str(),
+                "observed_at": Value::Null,
+            }),
+        ));
+    }
+    for s in &values {
+        let t = &s.entry.option_type;
+        let idx = match rows.iter().position(|(k, _)| k == t) {
+            Some(i) => i,
+            None => {
+                rows.push((
+                    t.clone(),
+                    json!({"option_type": t, "value_count": 0, "source": Value::Null,
+                           "observed_at": Value::Null}),
+                ));
+                rows.len() - 1
+            }
+        };
+        let r = &mut rows[idx].1;
+        r["value_count"] = json!(r["value_count"].as_u64().unwrap_or(0) + 1);
+        let newer = r["observed_at"]
+            .as_str()
+            .is_none_or(|d| s.entry.last_seen.as_str() > d);
+        if newer {
+            r["observed_at"] = json!(s.entry.last_seen);
+            r["source"] = json!(s.source.as_str());
+        }
+    }
+    rows.sort_by(|a, b| a.0.cmp(&b.0));
+    Ok(rows_data(rows.into_iter().map(|(_, v)| v).collect()))
+}

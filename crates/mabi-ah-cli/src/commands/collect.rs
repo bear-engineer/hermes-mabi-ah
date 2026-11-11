@@ -3,8 +3,12 @@ use std::io::Write;
 
 use clap::Args;
 use mabi_ah_app::error::AppError;
-use mabi_ah_app::ports::{Clock, TradeStore};
+use mabi_ah_app::ports::{AuctionGateway, CatalogStore, Clock, ListingQuery, Page, TradeStore};
 use mabi_ah_app::usecases::{CollectReport, collect_trades};
+use mabi_ah_domain::catalog;
+use mabi_ah_domain::listing::Listing;
+use mabi_ah_domain::option::ItemOption;
+use mabi_ah_domain::trade::Trade;
 use mabi_ah_store::CollectLock;
 use serde_json::{Value, json};
 use time::Duration;
@@ -37,10 +41,51 @@ pub fn finish_raw(text: &str) -> ! {
     std::process::exit(0)
 }
 
+/// Gateway wrapper that remembers `(category, options)` of every fetched trade so
+/// the CLI can record catalog observations after the collector ran.
+struct Observing<'g> {
+    inner: &'g mut dyn AuctionGateway,
+    seen: Vec<(String, Vec<ItemOption>)>,
+}
+
+impl AuctionGateway for Observing<'_> {
+    fn listings(&mut self, query: &ListingQuery) -> Result<Page<Listing>, AppError> {
+        self.inner.listings(query)
+    }
+    fn trades(&mut self, query: &ListingQuery) -> Result<Page<Trade>, AppError> {
+        let page = self.inner.trades(query)?;
+        self.seen.extend(
+            page.items
+                .iter()
+                .map(|t| (t.category.clone(), t.options.clone())),
+        );
+        Ok(page)
+    }
+    fn search(
+        &mut self,
+        keywords: &[String],
+        cursor: Option<&str>,
+    ) -> Result<Page<Listing>, AppError> {
+        self.inner.search(keywords, cursor)
+    }
+}
+
 fn collect_once(ctx: &mut Context, args: &CollectArgs) -> Result<(CollectReport, usize), AppError> {
     let _lock = CollectLock::acquire(&ctx.cfg.db_path)?;
-    let mut gw = ctx.gateway()?;
+    let mut client = ctx.gateway()?;
+    let mut gw = Observing {
+        inner: &mut client,
+        seen: Vec::new(),
+    };
     let report = collect_trades(&mut gw, &mut ctx.store, &ctx.clock, args.max_calls)?;
+    let obs: Vec<_> = gw
+        .seen
+        .iter()
+        .flat_map(|(cat, opts)| catalog::extract(&ctx.options, cat, opts))
+        .collect();
+    if !obs.is_empty() {
+        CatalogStore::record_catalog(&mut ctx.store, &obs, ctx.clock.now())?;
+    }
     let cutoff = ctx.clock.now() - Duration::days(i64::from(args.retain_days));
     let purged = ctx.store.purge_older_than(cutoff)?;
     Ok((report, purged))
