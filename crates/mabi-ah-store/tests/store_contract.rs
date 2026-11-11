@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use mabi_ah_app::ports::{BudgetLedger, Outbox, TradeStore, WatchStore};
 use mabi_ah_domain::item_name::ItemName;
 use mabi_ah_domain::listing::Listing;
@@ -88,8 +90,15 @@ fn trades_between_is_half_open_and_filters_base_name() {
         trade("2", "방패", "방패", t0 + time::Duration::minutes(5)),
     ])
     .unwrap();
-    assert_eq!(s.trades_between(t0, t0 + time::Duration::minutes(5), None).unwrap().len(), 1);
-    let only = s.trades_between(t0, t0 + time::Duration::hours(1), Some("검")).unwrap();
+    assert_eq!(
+        s.trades_between(t0, t0 + time::Duration::minutes(5), None)
+            .unwrap()
+            .len(),
+        1
+    );
+    let only = s
+        .trades_between(t0, t0 + time::Duration::hours(1), Some("검"))
+        .unwrap();
     assert_eq!(only.len(), 1);
     assert_eq!(only[0].name.raw, "@검");
 }
@@ -120,7 +129,10 @@ fn gaps_roundtrip_and_overlap() {
     let m = |n| t + time::Duration::minutes(n);
     s.record_gap(m(10), m(20)).unwrap();
     s.record_gap(m(30), m(40)).unwrap();
-    assert_eq!(s.gaps_between(m(0), m(60)).unwrap(), vec![(m(10), m(20)), (m(30), m(40))]);
+    assert_eq!(
+        s.gaps_between(m(0), m(60)).unwrap(),
+        vec![(m(10), m(20)), (m(30), m(40))]
+    );
     assert_eq!(s.gaps_between(m(15), m(25)).unwrap(), vec![(m(10), m(20))]);
     assert!(s.gaps_between(m(20), m(30)).unwrap().is_empty());
 }
@@ -161,7 +173,10 @@ fn drain_returns_pending_in_order_then_marks_delivered() {
     s.enqueue_if_new(&b).unwrap();
     assert_eq!(s.drain().unwrap(), vec![a.clone(), b]);
     assert!(s.drain().unwrap().is_empty());
-    assert!(!s.enqueue_if_new(&a).unwrap(), "delivered keys stay deduped");
+    assert!(
+        !s.enqueue_if_new(&a).unwrap(),
+        "delivered keys stay deduped"
+    );
 }
 
 #[test]
@@ -171,12 +186,12 @@ fn budget_counts_per_utc_day_on_separate_handle() {
     b.record_call(datetime!(2026-11-11 23:59:59 UTC)).unwrap();
     b.record_call(datetime!(2026-11-11 00:00:00 UTC)).unwrap();
     b.record_call(datetime!(2026-11-12 00:00:00 UTC)).unwrap();
-    assert_eq!(b.used_on(date!(2026-11-11)).unwrap(), 2);
-    assert_eq!(b.used_on(date!(2026-11-12)).unwrap(), 1);
-    assert_eq!(b.used_on(date!(2026-11-13)).unwrap(), 0);
+    assert_eq!(b.used_on(date!(2026 - 11 - 11)).unwrap(), 2);
+    assert_eq!(b.used_on(date!(2026 - 11 - 12)).unwrap(), 1);
+    assert_eq!(b.used_on(date!(2026 - 11 - 13)).unwrap(), 0);
     drop(store);
     let b2 = SqliteBudget::open(&path).unwrap();
-    assert_eq!(b2.used_on(date!(2026-11-11)).unwrap(), 2, "persisted");
+    assert_eq!(b2.used_on(date!(2026 - 11 - 11)).unwrap(), 2, "persisted");
 }
 
 #[test]
@@ -184,8 +199,11 @@ fn purge_deletes_old_trades_and_gaps() {
     let (_d, _p, mut s) = open();
     let t = datetime!(2026-11-11 00:00 UTC);
     let m = |n| t + time::Duration::minutes(n);
-    s.insert_trades(&[trade("old", "@검", "검", m(0)), trade("new", "@검", "검", m(10))])
-        .unwrap();
+    s.insert_trades(&[
+        trade("old", "@검", "검", m(0)),
+        trade("new", "@검", "검", m(10)),
+    ])
+    .unwrap();
     s.record_gap(m(0), m(2)).unwrap();
     s.record_gap(m(8), m(12)).unwrap();
     assert_eq!(s.purge_older_than(m(5)).unwrap(), 1);
@@ -199,7 +217,7 @@ fn purge_deletes_old_trades_and_gaps() {
 fn second_collect_lock_fails_and_releases_on_drop() {
     let (_d, path, _s) = open();
     let first = CollectLock::acquire(&path).unwrap();
-    let err = CollectLock::acquire(&path).err().expect("second holder fails");
+    let err = CollectLock::acquire(&path).expect_err("second holder fails");
     assert_eq!(err.exit_code(), 7);
     drop(first);
     CollectLock::acquire(&path).expect("free after drop");
