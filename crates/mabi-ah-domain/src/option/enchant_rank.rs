@@ -50,13 +50,18 @@ impl EnchantRank {
 
     /// 0 for F up to 14 for rank 1.
     pub fn ordinal(self) -> u8 {
-        todo!()
+        self as u8
     }
 }
 
 impl fmt::Display for EnchantRank {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        todo!()
+        let o = self.ordinal();
+        if o <= Self::A.ordinal() {
+            write!(f, "{}", char::from(b'F' - o))
+        } else {
+            write!(f, "{}", 9 - (o - Self::N9.ordinal()))
+        }
     }
 }
 
@@ -64,7 +69,18 @@ impl FromStr for EnchantRank {
     type Err = EnchantRankParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        todo!()
+        let t = s.trim();
+        let t = t.strip_prefix("랭크").unwrap_or(t).trim();
+        let err = || EnchantRankParseError(s.to_string());
+        let mut chars = t.chars();
+        let (Some(c), None) = (chars.next(), chars.next()) else {
+            return Err(err());
+        };
+        let c = c.to_ascii_uppercase();
+        Self::ALL
+            .into_iter()
+            .find(|r| r.to_string().starts_with(c))
+            .ok_or_else(err)
     }
 }
 

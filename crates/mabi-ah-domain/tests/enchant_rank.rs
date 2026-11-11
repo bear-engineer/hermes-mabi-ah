@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used)]
 use mabi_ah_domain::option::enchant_rank::EnchantRank;
 use proptest::prelude::*;
 
