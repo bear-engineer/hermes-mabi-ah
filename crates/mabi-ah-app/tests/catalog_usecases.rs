@@ -594,7 +594,10 @@ fn unknown_option_type_is_usage_error_with_suggestion() {
     let known: Vec<String> = vec!["세공 옵션".into(), "세공 랭크".into()];
     let e = check_filter_names(&filter, &known, &[]).unwrap_err();
     assert_eq!(e.exit_code(), 2);
-    assert!(e.to_string().contains("세공 옵션"), "{e}");
+    assert!(
+        matches!(&e, AppError::UsageHint { hint, .. } if hint.contains("세공 옵션")),
+        "{e}"
+    );
 
     let generic = ItemFilter {
         predicates: vec![OptionPredicate::Generic(
@@ -604,7 +607,7 @@ fn unknown_option_type_is_usage_error_with_suggestion() {
     };
     assert!(matches!(
         check_filter_names(&generic, &known, &[]),
-        Err(AppError::Usage(_))
+        Err(AppError::UsageHint { .. })
     ));
     let fine = ItemFilter {
         options: vec!["세공 랭크>=1".parse::<OptionFilter>().unwrap()],

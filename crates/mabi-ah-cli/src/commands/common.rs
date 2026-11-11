@@ -2,7 +2,9 @@
 use clap::Args;
 use mabi_ah_app::error::AppError;
 use mabi_ah_app::ports::{CatalogQuery, ListingQuery};
-use mabi_ah_app::usecases::catalog::{catalog_enchants_with, check_reforge_names};
+use mabi_ah_app::usecases::catalog::{
+    catalog_enchants_with, check_reforge_names, unknown_type_error,
+};
 use mabi_ah_app::usecases::{ItemFilter, QueryEnv, catalog_reforges, check_filter_names};
 use mabi_ah_domain::listing::Listing;
 use mabi_ah_domain::option::predicate::{
@@ -54,7 +56,7 @@ impl FilterArgs {
         };
         for raw in &self.option {
             let t = raw.trim();
-            if t.starts_with('!') || has_unescaped_pipe(t) {
+            if needs_expr(t) {
                 let e: FilterExpr = t.parse().map_err(|e| usage("--option", raw, e))?;
                 f.predicates.push(OptionPredicate::Generic(e));
             } else {
@@ -62,8 +64,19 @@ impl FilterArgs {
                     .push(t.parse().map_err(|e| usage("--option", raw, e))?);
             }
         }
-        for raw in self.enchant.iter().chain(&self.enchant_rank) {
+        for raw in &self.enchant {
             let p: EnchantPred = raw.parse().map_err(|e| usage("--enchant", raw, e))?;
+            f.predicates.push(OptionPredicate::Enchant(p));
+        }
+        for raw in &self.enchant_rank {
+            let p: EnchantPred = raw.parse().map_err(|e| usage("--enchant-rank", raw, e))?;
+            if p.name.is_some() {
+                return Err(usage(
+                    "--enchant-rank",
+                    raw,
+                    "takes a rank range, not an enchant name (use --enchant)",
+                ));
+            }
             f.predicates.push(OptionPredicate::Enchant(p));
         }
         for raw in &self.reforge {
@@ -78,6 +91,13 @@ impl FilterArgs {
     }
 }
 
+/// True when a plain `-o` string needs the `FilterExpr` parser: a leading `!`, an
+/// unescaped `|` (OR) or any backslash escape. A single plain alternative parses
+/// to the same filter either way, so v0.1 filters keep their meaning.
+pub fn needs_expr(t: &str) -> bool {
+    t.starts_with('!') || t.contains('\\') || has_unescaped_pipe(t)
+}
+
 fn has_unescaped_pipe(s: &str) -> bool {
     let mut esc = false;
     for c in s.chars() {
@@ -90,14 +110,8 @@ fn has_unescaped_pipe(s: &str) -> bool {
     false
 }
 
-/// Parses the filter flags and checks the option types / enchant names / reforge
-/// option names they use against the registry, repo facts, Labanyu reference data
-/// and the merged catalog (exit 2 / exit 3 with similar names), before any API call.
-pub fn checked_filter(ctx: &Context, args: &FilterArgs) -> Result<ItemFilter, AppError> {
-    let filter = args.item_filter()?;
-    if filter.options.is_empty() && filter.predicates.is_empty() {
-        return Ok(filter);
-    }
+/// Every option type known to the registry, repo facts and the local catalog.
+pub fn known_option_types(ctx: &Context) -> Result<Vec<String>, AppError> {
     let repo = ctx.repo()?;
     let mut types: Vec<String> = ctx
         .options
@@ -120,6 +134,39 @@ pub fn checked_filter(ctx: &Context, args: &FilterArgs) -> Result<ItemFilter, Ap
     );
     types.sort();
     types.dedup();
+    Ok(types)
+}
+
+/// The option type a raw `-o` string starts with (before an operator or `:`).
+fn type_token(raw: &str) -> &str {
+    let t = raw.trim().trim_start_matches('!');
+    t.split(['>', '<', '=', '~', ':'])
+        .next()
+        .unwrap_or(t)
+        .trim()
+}
+
+/// Parses the filter flags and checks the option types / enchant names / reforge
+/// option names they use against the registry, repo facts, Labanyu reference data
+/// and the merged catalog (exit 2 / exit 3 with similar names), before any API call.
+pub fn checked_filter(ctx: &Context, args: &FilterArgs) -> Result<ItemFilter, AppError> {
+    let filter = match args.item_filter() {
+        Ok(f) => f,
+        Err(e) => {
+            // A misspelt type often also fails the value check (`인첸트>=E`): suggest it.
+            let types = known_option_types(ctx)?;
+            return Err(args
+                .option
+                .iter()
+                .find_map(|raw| unknown_type_error(type_token(raw), &types))
+                .unwrap_or(e));
+        }
+    };
+    if filter.options.is_empty() && filter.predicates.is_empty() {
+        return Ok(filter);
+    }
+    let repo = ctx.repo()?;
+    let types = known_option_types(ctx)?;
     let reference = ctx.reference()?;
     let mut enchants: Vec<String> = catalog_enchants_with(
         &ctx.store,

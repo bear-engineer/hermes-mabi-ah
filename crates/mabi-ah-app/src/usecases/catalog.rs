@@ -8,7 +8,7 @@
 use time::OffsetDateTime;
 
 use mabi_ah_domain::catalog;
-use mabi_ah_domain::option::predicate::OptionPredicate;
+use mabi_ah_domain::option::predicate::{OptionPredicate, reforge_name_matches};
 use mabi_ah_domain::option::{OptionFilter, OptionRegistry};
 use mabi_ah_domain::repo_data::{
     CatalogSource, EnchantEntry, ObservedEntry, OptionValueEntry, ReforgeEntry, Sourced, merge,
@@ -222,6 +222,20 @@ fn similar(input: &str, known: &[String]) -> Option<String> {
     (!names.is_empty()).then(|| format!("비슷한 이름: {}", names.join(", ")))
 }
 
+/// Usage error (exit 2) naming similar types when `option_type` is not in
+/// `known_types`; `None` when it is known or there is nothing to judge by.
+pub fn unknown_type_error(option_type: &str, known_types: &[String]) -> Option<AppError> {
+    let t = option_type.trim();
+    if known_types.is_empty() || known_types.iter().any(|k| k.trim() == t) {
+        return None;
+    }
+    Some(AppError::UsageHint {
+        message: format!("unknown option type '{t}'"),
+        hint: similar(t, known_types)
+            .unwrap_or_else(|| "`catalog option-types` 로 옵션 종류를 확인하세요".to_owned()),
+    })
+}
+
 /// Check the names a filter uses. An option type missing from `known_types` is a
 /// usage error (exit 2) naming similar types; an enchant predicate naming an enchant
 /// missing from `known_enchants` is not found (exit 3) with similar names in the
@@ -238,13 +252,8 @@ pub fn check_filter_names(
     let filters: Vec<&OptionFilter> = filter.options.iter().chain(generic).collect();
     if !known_types.is_empty() {
         for f in filters {
-            let t = f.option_type.trim();
-            if !known_types.iter().any(|k| k.trim() == t) {
-                let mut msg = format!("unknown option type '{t}'");
-                if let Some(h) = similar(t, known_types) {
-                    msg.push_str(&format!(" ({h})"));
-                }
-                return Err(AppError::Usage(msg));
+            if let Some(e) = unknown_type_error(&f.option_type, known_types) {
+                return Err(e);
             }
         }
     }
@@ -277,12 +286,7 @@ pub fn check_reforge_names(filter: &ItemFilter, known_reforges: &[String]) -> Re
     for p in &filter.predicates {
         if let OptionPredicate::Reforge(r) = p {
             let name = r.name.trim();
-            // Same rule as `ReforgePred`: exact name or trailing words of a known name.
-            let trailing = format!(" {name}");
-            if !known_reforges.iter().any(|k| {
-                let k = k.trim();
-                k == name || k.ends_with(&trailing)
-            }) {
+            if !known_reforges.iter().any(|k| reforge_name_matches(k, name)) {
                 return Err(AppError::NotFound {
                     what: format!("reforge option '{name}'"),
                     hint: Some(similar(name, known_reforges).unwrap_or_else(|| {

@@ -20,6 +20,9 @@ pub enum AppError {
     NotFound { what: String, hint: Option<String> },
     #[error("usage: {0}")]
     Usage(String),
+    /// Usage error with a separate hint (e.g. similar names).
+    #[error("usage: {message}")]
+    UsageHint { message: String, hint: String },
     #[error("api key or permission: {0}")]
     Auth(String),
     #[error("rate limited by the API")]
@@ -54,7 +57,7 @@ impl AppError {
     pub fn exit_code(&self) -> u8 {
         match self {
             Self::Internal(_) => exit_code::INTERNAL,
-            Self::Usage(_) => exit_code::USAGE,
+            Self::Usage(_) | Self::UsageHint { .. } => exit_code::USAGE,
             Self::NotFound { .. } => exit_code::NOT_FOUND,
             Self::Auth(_) => exit_code::AUTH,
             Self::RateLimited { .. } | Self::BudgetExceeded { .. } => exit_code::RATE_OR_BUDGET,
@@ -72,7 +75,7 @@ impl AppError {
     pub fn code(&self) -> &'static str {
         match self {
             Self::NotFound { .. } => "not_found",
-            Self::Usage(_) => "usage",
+            Self::Usage(_) | Self::UsageHint { .. } => "usage",
             Self::Auth(_) => "auth",
             Self::RateLimited { .. } => "rate_limited",
             Self::BudgetExceeded { .. } => "budget_exceeded",

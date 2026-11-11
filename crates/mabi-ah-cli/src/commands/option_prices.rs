@@ -2,10 +2,12 @@
 //! option family in a category.
 use clap::Args;
 use mabi_ah_app::error::AppError;
+use mabi_ah_app::usecases::catalog::unknown_type_error;
 use mabi_ah_app::usecases::option_prices;
 use mabi_ah_domain::price_ko::price_ko;
 use serde_json::{Value, json};
 
+use super::common::known_option_types;
 use crate::context::Context;
 
 #[derive(Debug, Args)]
@@ -22,6 +24,9 @@ pub struct OptionPricesArgs {
 }
 
 pub fn run(ctx: &mut Context, args: &OptionPricesArgs) -> Result<Value, AppError> {
+    if let Some(e) = unknown_type_error(&args.family, &known_option_types(ctx)?) {
+        return Err(e);
+    }
     let mut gw = ctx.gateway()?;
     let r = option_prices(
         &mut gw,

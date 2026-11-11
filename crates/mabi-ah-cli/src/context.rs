@@ -138,6 +138,6 @@ pub fn build_meta(ctx: Option<&Context>, used_before: u64) -> Meta {
             lag_seconds: st.lag_seconds,
             stale: st.stale,
         },
-        attribution: mabi_ah_domain::attribution::ATTRIBUTION,
+        attribution: mabi_ah_domain::attribution::ATTRIBUTION.to_owned(),
     }
 }

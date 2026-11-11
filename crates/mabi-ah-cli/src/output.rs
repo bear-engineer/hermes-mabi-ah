@@ -1,5 +1,6 @@
 //! Output envelope (`mabi_ah/v1`) and the table renderer.
 use mabi_ah_app::error::{AppError, UpstreamKind};
+use mabi_ah_domain::repo_data::{CatalogSource, LABANYU_ATTRIBUTION};
 use mabi_ah_nexon::error_code::NexonCode;
 use serde::Serialize;
 use serde_json::Value;
@@ -30,7 +31,7 @@ pub struct Meta {
     pub calls_used: u64,
     pub budget: BudgetMeta,
     pub staleness: StalenessMeta,
-    pub attribution: &'static str,
+    pub attribution: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -56,7 +57,33 @@ pub fn rfc3339(t: OffsetDateTime) -> String {
     t.format(&Rfc3339).unwrap_or_default()
 }
 
-pub fn ok(command: &str, data: Value, meta: Meta) -> Envelope {
+/// Data keys whose presence marks a catalog row as Labanyu-derived.
+const LABANYU_FIELDS: [&str; 5] = [
+    "stats",
+    "target_names",
+    "dungeon_grade",
+    "equipment_slot_classification",
+    "limit_break_max_level",
+];
+
+/// True when any row of `data.rows` is a Labanyu reference row or carries a
+/// Labanyu-derived field with a value.
+pub fn has_labanyu_rows(data: &Value) -> bool {
+    let Some(rows) = data.get("rows").and_then(Value::as_array) else {
+        return false;
+    };
+    rows.iter().any(|r| {
+        r.get("source").and_then(Value::as_str) == Some(CatalogSource::LabanyuReference.as_str())
+            || LABANYU_FIELDS
+                .iter()
+                .any(|k| r.get(*k).is_some_and(|v| !v.is_null()))
+    })
+}
+
+pub fn ok(command: &str, data: Value, mut meta: Meta) -> Envelope {
+    if has_labanyu_rows(&data) {
+        meta.attribution = format!("{}; {LABANYU_ATTRIBUTION}", meta.attribution);
+    }
     Envelope {
         schema: SCHEMA,
         ok: true,
@@ -88,6 +115,11 @@ pub fn error_body(e: &AppError) -> ErrorBody {
         AppError::Usage(m) => (
             format!("사용법이 올바르지 않습니다: {m}"),
             Some("mabi-ah --help 로 사용법을 확인하세요".to_owned()),
+            None,
+        ),
+        AppError::UsageHint { message, hint } => (
+            format!("사용법이 올바르지 않습니다: {message}"),
+            Some(hint.clone()),
             None,
         ),
         AppError::Auth(m) => (

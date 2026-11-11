@@ -43,6 +43,8 @@ pub enum PredicateParseError {
     MissingName(String),
     #[error("operator not allowed here: '{0}'")]
     BadOperator(String),
+    #[error("empty enchant rank range '{0}' (minimum is above maximum)")]
+    EmptyRange(String),
 }
 
 impl PredicateParseError {
@@ -55,7 +57,8 @@ impl PredicateParseError {
             | Self::BadGrade(t)
             | Self::UnknownModKind(t)
             | Self::MissingName(t)
-            | Self::BadOperator(t) => t,
+            | Self::BadOperator(t)
+            | Self::EmptyRange(t) => t,
         }
     }
 }
@@ -240,6 +243,11 @@ impl FromStr for EnchantPred {
                 }
             }
         }
+        if let (Some(min), Some(max)) = (pred.min, pred.max)
+            && min > max
+        {
+            return Err(PredicateParseError::EmptyRange(s.to_string()));
+        }
         Ok(pred)
     }
 }
@@ -302,8 +310,8 @@ impl FromStr for ReforgePred {
 
 /// The one reforge name rule: `wanted` equals the effect name or its trailing words.
 pub fn reforge_name_matches(effect: &str, wanted: &str) -> bool {
-    let _ = (effect, wanted);
-    todo!("fx1: shared reforge name rule")
+    let (effect, wanted) = (effect.trim(), wanted.trim());
+    !wanted.is_empty() && (effect == wanted || effect.ends_with(&format!(" {wanted}")))
 }
 
 impl ReforgePred {
@@ -319,7 +327,7 @@ impl ReforgePred {
             })
             .any(|o| match reg.parse_value(o) {
                 OptionValue::Leveled { effect, level, .. } => {
-                    (effect == self.name || effect.ends_with(&format!(" {}", self.name)))
+                    reforge_name_matches(&effect, &self.name)
                         && self.level.is_none_or(|(c, n)| c.test(&level, &n))
                 }
                 _ => false,

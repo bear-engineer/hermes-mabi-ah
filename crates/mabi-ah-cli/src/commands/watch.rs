@@ -8,7 +8,7 @@ use mabi_ah_store::SqliteStore;
 use serde_json::{Value, json};
 
 use super::collect::finish_raw;
-use super::common::{listing_json, parse_filters};
+use super::common::{listing_json, needs_expr, parse_filters};
 use crate::context::Context;
 
 #[derive(Debug, Args)]
@@ -108,6 +108,15 @@ fn add(ctx: &mut Context, a: &WatchAddArgs) -> Result<Value, AppError> {
     let name = a.name.trim().trim_start_matches('@').trim();
     if name.is_empty() {
         return Err(AppError::Usage("--name must not be empty".to_owned()));
+    }
+    if let Some(o) = a.option.iter().find(|o| needs_expr(o.trim())) {
+        return Err(AppError::UsageHint {
+            message: format!(
+                "watch rules take plain `<type>[:<sub>](>=|<=|=|~)<value>` filters only, got '{o}'"
+            ),
+            hint: "`!`, `|` 와 `\\` 이스케이프는 `listings -o` 에서만 쓸 수 있습니다; 감시에는 단순 필터를 쓰세요"
+                .to_owned(),
+        });
     }
     parse_filters(&a.option)?;
     let category = a
