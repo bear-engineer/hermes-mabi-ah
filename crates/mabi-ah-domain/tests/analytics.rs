@@ -58,3 +58,47 @@ fn trend_empty_range_is_empty() {
     let at = datetime!(2026-11-10 00:00 UTC);
     assert!(trend(&[], Bucket::Hour, at, at, &[]).is_empty());
 }
+
+// ---------- rank ----------
+use mabi_ah_domain::rank::{RankBy, RankEntry, rank};
+
+fn rank_fixture() -> Vec<Trade> {
+    let at = datetime!(2026-11-10 00:00 UTC);
+    vec![
+        trade("1", "a", "W", 100, 2, at),
+        trade("2", "@a", "W", 300, 1, at), // same base as "a"
+        trade("3", "b", "A", 50, 10, at),
+        trade("4", "c", "W", 500, 1, at),
+        trade("5", "d", "W", 10, 3, at),
+    ]
+}
+
+fn names(v: &[RankEntry]) -> Vec<&str> {
+    v.iter().map(|e| e.base_name.as_str()).collect()
+}
+
+#[test]
+fn rank_by_volume_groups_base_and_breaks_ties_by_name() {
+    // units: a=3 b=10 c=1 d=3
+    let got = rank(&rank_fixture(), RankBy::Volume, 10, None);
+    assert_eq!(names(&got), ["b", "a", "d", "c"]);
+    assert_eq!(
+        got[1],
+        RankEntry { base_name: "a".into(), display_sample: "a 표시".into(), units: 3, value: 500, trades: 2 }
+    );
+}
+
+#[test]
+fn rank_by_value_ties_and_top() {
+    // value: a=500 b=500 c=500 d=30
+    let got = rank(&rank_fixture(), RankBy::Value, 2, None);
+    assert_eq!(names(&got), ["a", "b"]);
+}
+
+#[test]
+fn rank_category_filter() {
+    let got = rank(&rank_fixture(), RankBy::Volume, 10, Some("W"));
+    assert_eq!(names(&got), ["a", "d", "c"]);
+    assert!(rank(&rank_fixture(), RankBy::Volume, 10, Some("none")).is_empty());
+    assert!(rank(&rank_fixture(), RankBy::Volume, 0, None).is_empty());
+}
