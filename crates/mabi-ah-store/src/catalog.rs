@@ -10,6 +10,7 @@
 //! source and enchant effects follow the newest `last_seen` (ties go to the new write).
 
 use mabi_ah_app::error::AppError;
+use mabi_ah_app::ports::CatalogStore;
 use mabi_ah_domain::catalog::CatalogObservation;
 use mabi_ah_domain::option::ItemOption;
 use mabi_ah_domain::option::enchant_rank::EnchantRank;
@@ -25,14 +26,8 @@ use crate::store::{SqliteStore, from_ms, ms, store_err, to_i64, to_u64};
 /// Rows older than this many days (by `last_seen`) are purged.
 pub const PURGE_DAYS: i64 = 30;
 
-/// Filters for catalog queries; `None` means no filter. `text` is a substring match.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct CatalogQuery {
-    pub text: Option<String>,
-    pub category: Option<String>,
-    pub slot: Option<String>,
-    pub limit: Option<usize>,
-}
+/// Filters for catalog queries (defined by the app port).
+pub use mabi_ah_app::ports::CatalogQuery;
 
 /// How many rows an import wrote.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -630,4 +625,33 @@ impl SqliteStore {
 
 fn to_i64_usize(v: usize) -> i64 {
     i64::try_from(v).unwrap_or(i64::MAX)
+}
+
+impl CatalogStore for SqliteStore {
+    fn record_catalog(
+        &mut self,
+        observations: &[CatalogObservation],
+        seen_at: OffsetDateTime,
+    ) -> Result<usize, AppError> {
+        SqliteStore::record_catalog(self, observations, seen_at)
+    }
+    fn catalog_enchants(&self, q: &CatalogQuery) -> Result<Vec<Sourced<EnchantEntry>>, AppError> {
+        SqliteStore::catalog_enchants(self, q)
+    }
+    fn catalog_reforges(&self, q: &CatalogQuery) -> Result<Vec<Sourced<ReforgeEntry>>, AppError> {
+        SqliteStore::catalog_reforges(self, q)
+    }
+    fn catalog_option_values(
+        &self,
+        option_type: Option<&str>,
+        q: &CatalogQuery,
+    ) -> Result<Vec<Sourced<OptionValueEntry>>, AppError> {
+        SqliteStore::catalog_option_values(self, option_type, q)
+    }
+    fn catalog_option_types(&self) -> Result<Vec<(String, u64)>, AppError> {
+        SqliteStore::catalog_option_types(self)
+    }
+    fn purge_catalog(&mut self, now: OffsetDateTime) -> Result<usize, AppError> {
+        SqliteStore::purge_catalog(self, now)
+    }
 }

@@ -23,8 +23,10 @@
 
 use time::{Date, OffsetDateTime};
 
+use mabi_ah_domain::catalog::CatalogObservation;
 use mabi_ah_domain::listing::Listing;
 use mabi_ah_domain::option::ItemOption;
+use mabi_ah_domain::repo_data::{EnchantEntry, OptionValueEntry, ReforgeEntry, Sourced};
 use mabi_ah_domain::trade::Trade;
 use mabi_ah_domain::watch::{Alert, WatchRule};
 
@@ -167,4 +169,36 @@ pub trait CallMeter {
 
 pub trait Clock {
     fn now(&self) -> OffsetDateTime;
+}
+
+/// Filters for catalog queries; `None` means no filter. `text` is a substring match
+/// (enchant name, reforge option, option value); `category` and `slot` are exact.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CatalogQuery {
+    pub text: Option<String>,
+    pub category: Option<String>,
+    pub slot: Option<String>,
+    pub limit: Option<usize>,
+}
+
+/// The user's local catalog of observed option names (no prices, no people).
+pub trait CatalogStore {
+    /// Records observations seen at `seen_at`; returns how many were written.
+    fn record_catalog(
+        &mut self,
+        observations: &[CatalogObservation],
+        seen_at: OffsetDateTime,
+    ) -> Result<usize, AppError>;
+    fn catalog_enchants(&self, q: &CatalogQuery) -> Result<Vec<Sourced<EnchantEntry>>, AppError>;
+    fn catalog_reforges(&self, q: &CatalogQuery) -> Result<Vec<Sourced<ReforgeEntry>>, AppError>;
+    /// Values of one option type (all types when `None`).
+    fn catalog_option_values(
+        &self,
+        option_type: Option<&str>,
+        q: &CatalogQuery,
+    ) -> Result<Vec<Sourced<OptionValueEntry>>, AppError>;
+    /// Option types with value rows and their row counts, sorted by type.
+    fn catalog_option_types(&self) -> Result<Vec<(String, u64)>, AppError>;
+    /// Deletes observations older than 30 days before `now`; returns rows removed.
+    fn purge_catalog(&mut self, now: OffsetDateTime) -> Result<usize, AppError>;
 }
