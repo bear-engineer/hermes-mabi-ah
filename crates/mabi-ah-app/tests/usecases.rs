@@ -616,6 +616,34 @@ fn check_watch_survives_a_failing_rule_and_never_loses_alerts() {
     assert!(r3.alerts.is_empty() && r3.errors.is_empty());
 }
 
+#[test]
+fn check_watch_permanent_rule_error_does_not_block_other_alerts() {
+    let mut w = MemWatch::default();
+    add_watch(&mut w, &rule("a", Some(250))).unwrap();
+    let mut broken = rule("b", Some(250));
+    broken.base_name = "없는 검".to_owned();
+    add_watch(&mut w, &broken).unwrap();
+    let mut gw = FakeGw {
+        listing_pages: vec![vec![listing("테스트 검", "검", 200)]],
+        fail_name: Some((
+            "없는 검".to_owned(),
+            AppError::NotFound {
+                what: "없는 검".to_owned(),
+                hint: None,
+            },
+        )),
+        ..FakeGw::default()
+    };
+    let mut ob = MemOutbox::default();
+    let reg = OptionRegistry::default();
+    // A rule that can never succeed (unknown item) must not hold back the
+    // other rules' alerts forever: only retryable failures defer delivery.
+    let r1 = check_watch(&mut gw, &w, &mut ob, &reg).unwrap();
+    assert_eq!(r1.errors.len(), 1);
+    assert_eq!(r1.alerts.len(), 1);
+    assert_eq!(r1.alerts[0].rule_id, "a");
+}
+
 // --- shop / horn / doctor / meter -------------------------------------------
 
 #[test]

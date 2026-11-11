@@ -364,8 +364,8 @@ fn watch_check_partial_failure_keeps_alert_for_next_run() {
     let (base, _) = serve(Box::new(move |url| {
         if url.contains("%EA%B3%A0%EC%9E%A5") && flag.load(Ordering::SeqCst) == 0 {
             return (
-                400,
-                json!({"error": {"name": "OPENAPI00004", "message": "bad"}}).to_string(),
+                503,
+                json!({"error": {"name": "OPENAPI00011", "message": "bad"}}).to_string(),
             );
         }
         (
@@ -434,4 +434,34 @@ fn raw_paths_report_failure_on_stderr_only() {
         "stderr: {}",
         t.stderr
     );
+}
+
+#[test]
+fn watch_check_unknown_item_rule_warns_but_still_delivers() {
+    let (base, _) = serve(Box::new(move |url| {
+        if url.contains("%EC%97%86%EB%8A%94") {
+            return (
+                400,
+                json!({"error": {"name": "OPENAPI00004", "message": "bad"}}).to_string(),
+            );
+        }
+        (
+            200,
+            json!({"auction_item": [{
+                "item_name": "@롱 소드", "item_display_name": "롱 소드", "item_count": 1,
+                "auction_item_category": "검", "auction_price_per_unit": 150,
+                "date_auction_expire": "2036-11-13T11:43:00.000Z", "item_option": null
+            }], "next_cursor": null})
+            .to_string(),
+        )
+    }));
+    let env = Env::new(&base);
+    for name in ["롱 소드", "없는 검"] {
+        let add = env.run(&["watch", "add", "--name", name, "--max-price", "200"]);
+        assert_eq!(add.code, 0, "stderr: {}", add.stderr);
+    }
+    let first = env.run(&["watch", "check", "--emit", "text"]);
+    assert_eq!(first.code, 0, "stderr: {}", first.stderr);
+    assert_eq!(first.stdout.lines().count(), 2, "stdout: {}", first.stdout);
+    assert!(first.stderr.contains("없는 검"), "stderr: {}", first.stderr);
 }
