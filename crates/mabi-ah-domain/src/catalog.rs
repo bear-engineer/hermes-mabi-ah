@@ -61,7 +61,18 @@ pub fn extract(
     category: &str,
     options: &[ItemOption],
 ) -> Vec<CatalogObservation> {
-    todo!()
+    let mut seen: Vec<&ItemOption> = Vec::new();
+    let mut out = Vec::new();
+    for o in options {
+        if seen.contains(&o) {
+            continue;
+        }
+        seen.push(o);
+        if let Some(obs) = observe(registry, category, o) {
+            out.push(obs);
+        }
+    }
+    out
 }
 
 fn observe(

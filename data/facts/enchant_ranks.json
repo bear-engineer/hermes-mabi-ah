@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "kind": "enchant_rank",
+  "attribution": "Data based on NEXON Open API. 직접 작성한 사실(hand-authored); 옵션 형식은 API 응답 관측에서 확인",
+  "entries": [
+    {
+      "rank": "F",
+      "order": 0
+    },
+    {
+      "rank": "E",
+      "order": 1
+    },
+    {
+      "rank": "D",
+      "order": 2
+    },
+    {
+      "rank": "C",
+      "order": 3
+    },
+    {
+      "rank": "B",
+      "order": 4
+    },
+    {
+      "rank": "A",
+      "order": 5
+    },
+    {
+      "rank": "9",
+      "order": 6
+    },
+    {
+      "rank": "8",
+      "order": 7
+    },
+    {
+      "rank": "7",
+      "order": 8
+    },
+    {
+      "rank": "6",
+      "order": 9
+    },
+    {
+      "rank": "5",
+      "order": 10
+    },
+    {
+      "rank": "4",
+      "order": 11
+    },
+    {
+      "rank": "3",
+      "order": 12
+    },
+    {
+      "rank": "2",
+      "order": 13
+    },
+    {
+      "rank": "1",
+      "order": 14
+    }
+  ]
+}

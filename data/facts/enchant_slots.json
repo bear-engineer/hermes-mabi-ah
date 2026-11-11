@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "kind": "enchant_slot",
+  "attribution": "Data based on NEXON Open API. 직접 작성한 사실(hand-authored); 옵션 형식은 API 응답 관측에서 확인",
+  "entries": [
+    {
+      "slot": "접두",
+      "note": "인챈트 접두사. 옵션 인챈트/인챈트 종류의 option_sub_type 값"
+    },
+    {
+      "slot": "접미",
+      "note": "인챈트 접미사. 옵션 인챈트/인챈트 종류의 option_sub_type 값"
+    }
+  ]
+}

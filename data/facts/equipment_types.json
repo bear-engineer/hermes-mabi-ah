@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "kind": "equipment_type",
+  "attribution": "Data based on NEXON Open API. 직접 작성한 사실(hand-authored); 옵션 형식은 API 응답 관측에서 확인",
+  "entries": [
+    {
+      "category": "검",
+      "group": "무기"
+    },
+    {
+      "category": "도끼",
+      "group": "무기"
+    },
+    {
+      "category": "둔기",
+      "group": "무기"
+    },
+    {
+      "category": "랜스",
+      "group": "무기"
+    },
+    {
+      "category": "활",
+      "group": "무기"
+    },
+    {
+      "category": "석궁",
+      "group": "무기"
+    },
+    {
+      "category": "듀얼건",
+      "group": "무기"
+    },
+    {
+      "category": "수리검",
+      "group": "무기"
+    },
+    {
+      "category": "너클",
+      "group": "무기"
+    },
+    {
+      "category": "스태프",
+      "group": "무기"
+    },
+    {
+      "category": "원드",
+      "group": "무기"
+    },
+    {
+      "category": "마도서",
+      "group": "무기"
+    },
+    {
+      "category": "오브",
+      "group": "무기"
+    },
+    {
+      "category": "체인 블레이드",
+      "group": "무기"
+    },
+    {
+      "category": "핸들",
+      "group": "무기"
+    },
+    {
+      "category": "실린더",
+      "group": "무기"
+    },
+    {
+      "category": "아틀라틀",
+      "group": "무기"
+    },
+    {
+      "category": "양손 장비",
+      "group": "무기"
+    },
+    {
+      "category": "한손 장비",
+      "group": "무기"
+    },
+    {
+      "category": "경갑옷",
+      "group": "방어구"
+    },
+    {
+      "category": "중갑옷",
+      "group": "방어구"
+    },
+    {
+      "category": "천옷",
+      "group": "방어구"
+    },
+    {
+      "category": "로브",
+      "group": "방어구"
+    },
+    {
+      "category": "장갑",
+      "group": "방어구"
+    },
+    {
+      "category": "신발",
+      "group": "방어구"
+    },
+    {
+      "category": "모자/가발",
+      "group": "방어구"
+    },
+    {
+      "category": "방패",
+      "group": "방어구"
+    },
+    {
+      "category": "액세서리",
+      "group": "장신구"
+    },
+    {
+      "category": "얼굴 장식",
+      "group": "장신구"
+    },
+    {
+      "category": "날개",
+      "group": "장신구"
+    },
+    {
+      "category": "꼬리",
+      "group": "장신구"
+    },
+    {
+      "category": "기타 장비",
+      "group": "기타"
+    },
+    {
+      "category": "악기",
+      "group": "기타"
+    }
+  ]
+}
