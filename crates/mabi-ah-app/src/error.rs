@@ -40,16 +40,38 @@ pub enum AppError {
 impl AppError {
     /// Process exit code (0 is success and never returned here).
     pub fn exit_code(&self) -> u8 {
-        todo!("node P green")
+        match self {
+            Self::Internal(_) => 1,
+            Self::Usage(_) => 2,
+            Self::NotFound { .. } => 3,
+            Self::Auth(_) => 4,
+            Self::RateLimited { .. } | Self::BudgetExceeded { .. } => 5,
+            Self::Upstream { .. } => 6,
+            Self::Store(_) => 7,
+        }
     }
 
     /// Whether the same command may succeed if simply run again later today.
     pub fn retryable(&self) -> bool {
-        todo!("node P green")
+        matches!(self, Self::RateLimited { .. } | Self::Upstream { .. })
     }
 
     /// Stable machine id for the envelope `error.code`.
     pub fn code(&self) -> &'static str {
-        todo!("node P green")
+        match self {
+            Self::NotFound { .. } => "not_found",
+            Self::Usage(_) => "usage",
+            Self::Auth(_) => "auth",
+            Self::RateLimited { .. } => "rate_limited",
+            Self::BudgetExceeded { .. } => "budget_exceeded",
+            Self::Upstream { kind, .. } => match kind {
+                UpstreamKind::GameMaintenance => "upstream_game_maintenance",
+                UpstreamKind::ApiMaintenance => "upstream_api_maintenance",
+                UpstreamKind::DataPreparing => "upstream_data_preparing",
+                UpstreamKind::Internal => "upstream_internal",
+            },
+            Self::Store(_) => "store",
+            Self::Internal(_) => "internal",
+        }
     }
 }
