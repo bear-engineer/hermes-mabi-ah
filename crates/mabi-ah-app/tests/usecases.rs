@@ -685,6 +685,35 @@ fn horn_redacts_character_names() {
     assert_eq!(raw[0].character_name, "테스트캐릭터");
 }
 
+struct FakeHornEcho;
+impl HornGateway for FakeHornEcho {
+    fn horn(&mut self, _server: &str) -> Result<Vec<HornMessage>, AppError> {
+        Ok(vec![
+            HornMessage {
+                character_name: "테스트캐릭터".to_owned(),
+                message: "테스트캐릭터 : 파티 구해요, 테스트캐릭터에게 귓".to_owned(),
+                sent_at: T0,
+            },
+            HornMessage {
+                character_name: "다른이름".to_owned(),
+                message: "별명123 : 같이 가요".to_owned(),
+                sent_at: T0,
+            },
+        ])
+    }
+}
+
+#[test]
+fn horn_redaction_also_masks_names_inside_message_text() {
+    let masked = query_horn(&mut FakeHornEcho, "류트", true).unwrap();
+    assert_eq!(masked[0].message, "*** : 파티 구해요, ***에게 귓");
+    // The in-game shout prefix "<speaker> : " is masked even when it differs
+    // from character_name.
+    assert_eq!(masked[1].message, "*** : 같이 가요");
+    let raw = query_horn(&mut FakeHornEcho, "류트", false).unwrap();
+    assert!(raw[0].message.starts_with("테스트캐릭터 : "));
+}
+
 #[test]
 fn npc_shop_passes_through() {
     let s = query_npc_shop(&mut FakeShop, "테스트NPC", "류트", 3).unwrap();
