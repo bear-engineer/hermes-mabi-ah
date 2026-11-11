@@ -83,10 +83,10 @@ impl AuctionGateway for FakeGw {
         if let Some(e) = &self.listings_err {
             return Err(e.clone());
         }
-        if let Some((name, e)) = &self.fail_name {
-            if q.name.as_deref() == Some(name.as_str()) {
-                return Err(e.clone());
-            }
+        if let Some((name, e)) = &self.fail_name
+            && q.name.as_deref() == Some(name.as_str())
+        {
+            return Err(e.clone());
         }
         Ok(paginate(&self.listing_pages, q.cursor.as_deref()))
     }
