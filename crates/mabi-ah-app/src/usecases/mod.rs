@@ -1,8 +1,11 @@
 //! Use cases over the port traits (node A).
+pub mod catalog;
 pub mod collect;
 pub mod meter;
 pub mod ops;
+pub mod option_prices;
 pub mod query;
+pub mod suggest;
 
 pub use collect::{CollectReport, collect_trades};
 pub use meter::LedgerMeter;
