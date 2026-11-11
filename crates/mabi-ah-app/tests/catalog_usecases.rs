@@ -756,3 +756,19 @@ fn unknown_reforge_name_is_not_found_with_spaced_suggestion() {
     check_reforge_names(&ok, &known).unwrap();
     check_reforge_names(&filter, &[]).unwrap();
 }
+
+#[test]
+fn reforge_name_check_accepts_trailing_words_like_the_predicate() {
+    use mabi_ah_app::usecases::catalog::check_reforge_names;
+    let known: Vec<String> = ["듀얼건 최대 대미지", "최대 공격력"]
+        .iter()
+        .map(|s| (*s).to_owned())
+        .collect();
+    let filter = ItemFilter {
+        predicates: vec![OptionPredicate::Reforge(
+            "최대 대미지>=10".parse::<ReforgePred>().unwrap(),
+        )],
+        ..ItemFilter::default()
+    };
+    check_reforge_names(&filter, &known).unwrap();
+}
