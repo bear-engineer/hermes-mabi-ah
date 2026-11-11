@@ -102,3 +102,74 @@ fn rank_category_filter() {
     assert!(rank(&rank_fixture(), RankBy::Volume, 10, Some("none")).is_empty());
     assert!(rank(&rank_fixture(), RankBy::Volume, 0, None).is_empty());
 }
+
+// ---------- watch ----------
+use mabi_ah_domain::listing::Listing;
+use mabi_ah_domain::option::{ItemOption, OptionRegistry};
+use mabi_ah_domain::watch::{WatchRule, evaluate};
+
+fn opt(t: &str, v: &str) -> ItemOption {
+    ItemOption { option_type: t.into(), sub_type: None, value: Some(v.into()), value2: None, desc: None }
+}
+
+fn listing(raw: &str, cat: &str, price: u64, options: Vec<ItemOption>) -> Listing {
+    Listing {
+        name: ItemName::new(raw, format!("{} 표시", raw.trim_start_matches('@'))),
+        count: 1,
+        category: cat.into(),
+        unit_price: price,
+        expires_at: datetime!(2026-11-12 00:00 UTC),
+        options,
+    }
+}
+
+fn rule() -> WatchRule {
+    WatchRule {
+        id: "r1".into(),
+        base_name: "a".into(),
+        max_unit_price: Some(150),
+        category: Some("W".into()),
+        filters: vec!["x~foo".into()],
+    }
+}
+
+#[test]
+fn watch_matches_only_listings_satisfying_all_conditions() {
+    let reg = OptionRegistry::default();
+    let ls = vec![
+        listing("@a", "W", 100, vec![opt("x", "foobar")]), // ok (base a, <=150)
+        listing("a", "W", 150, vec![opt("x", "foo")]),     // ok (boundary)
+        listing("b", "W", 100, vec![opt("x", "foo")]),     // wrong base
+        listing("a", "W", 151, vec![opt("x", "foo")]),     // too pricey
+        listing("a", "A", 100, vec![opt("x", "foo")]),     // wrong category
+        listing("a", "W", 100, vec![opt("x", "bar")]),     // filter fails
+        listing("a", "W", 100, vec![]),                    // no options
+    ];
+    let got = evaluate(&rule(), &ls, &reg).unwrap();
+    let prices: Vec<u64> = got.iter().map(|a| a.listing.unit_price).collect();
+    assert_eq!(prices, [100, 150]);
+    assert!(got.iter().all(|a| a.rule_id == "r1"));
+}
+
+#[test]
+fn watch_dedupe_key_is_deterministic_and_discriminating() {
+    let reg = OptionRegistry::default();
+    let l = listing("@a", "W", 100, vec![opt("x", "foo")]);
+    let r = WatchRule { filters: vec![], ..rule() };
+    let a = evaluate(&r, std::slice::from_ref(&l), &reg).unwrap();
+    assert_eq!(a[0].dedupe_key, "r1|a 표시|100|1794441600|x//foo//");
+    let again = evaluate(&r, std::slice::from_ref(&l), &reg).unwrap();
+    assert_eq!(a[0].dedupe_key, again[0].dedupe_key);
+    let l2 = listing("@a", "W", 101, vec![opt("x", "foo")]);
+    let b = evaluate(&r, &[l2], &reg).unwrap();
+    assert_ne!(a[0].dedupe_key, b[0].dedupe_key);
+}
+
+#[test]
+fn watch_no_constraints_matches_by_base_only_and_bad_filter_errors() {
+    let reg = OptionRegistry::default();
+    let bare = WatchRule { id: "r2".into(), base_name: "a".into(), max_unit_price: None, category: None, filters: vec![] };
+    assert_eq!(evaluate(&bare, &[listing("a", "Z", 9_999, vec![])], &reg).unwrap().len(), 1);
+    let bad = WatchRule { filters: vec!["nonsense".into()], ..bare };
+    assert!(evaluate(&bad, &[listing("a", "Z", 1, vec![])], &reg).is_err());
+}
