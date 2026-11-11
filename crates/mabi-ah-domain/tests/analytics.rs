@@ -173,3 +173,33 @@ fn watch_no_constraints_matches_by_base_only_and_bad_filter_errors() {
     let bad = WatchRule { filters: vec!["nonsense".into()], ..bare };
     assert!(evaluate(&bad, &[listing("a", "Z", 1, vec![])], &reg).is_err());
 }
+
+// ---------- staleness ----------
+use mabi_ah_domain::staleness::{DEFAULT_STALE_THRESHOLD, Staleness, assess};
+use time::Duration;
+
+#[test]
+fn staleness_default_threshold_is_15_minutes() {
+    assert_eq!(DEFAULT_STALE_THRESHOLD, Duration::minutes(15));
+}
+
+#[test]
+fn staleness_table() {
+    let now = datetime!(2026-11-10 10:10 UTC);
+    let th = DEFAULT_STALE_THRESHOLD;
+    let cases = [
+        (Some(datetime!(2026-11-10 10:00 UTC)), Some(600), false),
+        (Some(datetime!(2026-11-10 09:55 UTC)), Some(900), false), // exactly threshold
+        (Some(datetime!(2026-11-10 09:54:59 UTC)), Some(901), true),
+        (Some(datetime!(2026-11-10 10:11 UTC)), Some(0), false), // future clamps to 0
+    ];
+    for (newest, lag, stale) in cases {
+        assert_eq!(assess(newest, now, th), Staleness { newest_trade_at: newest, lag_seconds: lag, stale });
+    }
+}
+
+#[test]
+fn staleness_no_trades_is_stale() {
+    let s = assess(None, datetime!(2026-11-10 10:10 UTC), DEFAULT_STALE_THRESHOLD);
+    assert_eq!(s, Staleness { newest_trade_at: None, lag_seconds: None, stale: true });
+}
