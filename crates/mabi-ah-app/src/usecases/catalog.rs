@@ -277,7 +277,12 @@ pub fn check_reforge_names(filter: &ItemFilter, known_reforges: &[String]) -> Re
     for p in &filter.predicates {
         if let OptionPredicate::Reforge(r) = p {
             let name = r.name.trim();
-            if !known_reforges.iter().any(|k| k.trim() == name) {
+            // Same rule as `ReforgePred`: exact name or trailing words of a known name.
+            let trailing = format!(" {name}");
+            if !known_reforges.iter().any(|k| {
+                let k = k.trim();
+                k == name || k.ends_with(&trailing)
+            }) {
                 return Err(AppError::NotFound {
                     what: format!("reforge option '{name}'"),
                     hint: Some(similar(name, known_reforges).unwrap_or_else(|| {
